@@ -1,0 +1,14 @@
+[package]
+name = "sbert-rs"
+version = "0.1.0"
+authors = ["Chady Dimachkie <cdimachkie@nvidia.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dirs = "2.0.2"
+failure = "0.1.7"
+rust_tokenizers = "2.0.4"
+tch = "0.1.6"
+rust-bert = "0.6.2"
