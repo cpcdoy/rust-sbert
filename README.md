@@ -10,12 +10,13 @@ Might consider replacing [rust-tokenizers](https://github.com/guillaume-be/rust-
 
 - **distiluse-base-multilingual-cased**: Supported languages: Arabic, Chinese, Dutch, English, French, German,  Italian, Korean, Polish, Portuguese, Russian, Spanish, Turkish. Performance on the extended STS2017: 80.1
 
-
 ## Usage
+
+### Example
 
 The API is made to be very easy to use and enables you to create a sentence embedding very simply.
 
-Load SBert model with weights:
+Load SBert model with weights by specifying the directory of the model:
 
 ```Rust
 let mut home: PathBuf = env::current_dir().unwrap();
@@ -36,3 +37,12 @@ let output = sbert_model.encode(texts.to_vec()).unwrap();
 ```
 
 Then you can use the `output` sentence embedding in any application you want. 
+
+### Convert models from Python to Rust
+
+To be able to use the models provided [here](https://public.ukp.informatik.tu-darmstadt.de/reimers/sentence-transformers/v0.2/) by UKPLabs, you need to run this script to convert the model in a suitable format:
+
+```Bash
+cd model-path/
+python3 utils/prepare_distilbert.py
+```
