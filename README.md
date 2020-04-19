@@ -4,9 +4,16 @@ Rust port of [sentence-transformers](https://github.com/UKPLab/sentence-transfor
 
 Might consider replacing [rust-tokenizers](https://github.com/guillaume-be/rust-tokenizers) with Hugging Face's [tokenizers](https://github.com/huggingface/tokenizers/tree/master/tokenizers).
 
+## Supported models
+
+### Multilingual Models
+
+- **distiluse-base-multilingual-cased**: Supported languages: Arabic, Chinese, Dutch, English, French, German,  Italian, Korean, Polish, Portuguese, Russian, Spanish, Turkish. Performance on the extended STS2017: 80.1
+
+
 ## Usage
 
-The API is made to be very easy to use and enables you to create a sentence embedding very simply;
+The API is made to be very easy to use and enables you to create a sentence embedding very simply.
 
 Load SBert model with weights:
 
