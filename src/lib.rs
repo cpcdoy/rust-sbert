@@ -1,6 +1,14 @@
 pub mod layers;
-pub mod models;
+mod sbert;
 
-pub use layers::dense::Dense;
-pub use layers::pooling::Pooling;
-pub use models::sbert::SBert;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Torch VarStore error: {0}")]
+    VarStore(failure::Error),
+    #[error("Encoding error: {0}")]
+    Encoding(&'static str),
+}
+
+pub use sbert::SBert;

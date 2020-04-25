@@ -1,20 +1,14 @@
-extern crate dirs;
-extern crate rust_bert;
-extern crate tch;
+use std::env;
+use std::path::PathBuf;
+use std::process;
 
-use tch::{nn, no_grad, Device, Tensor, Kind};
-
-use failure::err_msg;
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
 use rust_tokenizers::bert_tokenizer::BertTokenizer;
 use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
-
-use std::path::PathBuf;
-use std::env;
+use tch::{nn, no_grad, Device, Kind, Tensor};
 
 fn mean_pooling(token_embeddings: Tensor) -> Tensor {
-
     let attention_mask = token_embeddings.ones_like();
     let input_mask_expanded = attention_mask.expand_as(&token_embeddings);
 
@@ -33,11 +27,11 @@ fn mean_pooling(token_embeddings: Tensor) -> Tensor {
     output_vectors.push(sum_embeddings / sum_mask);
 
     let output_vector = Tensor::cat(&output_vectors, 1);
-    
+
     output_vector
 }
 
-fn main() -> failure::Fallible<()> {
+fn main() {
     let device = Device::cuda_if_available();
     println!("device {:?}", device);
 
@@ -46,25 +40,24 @@ fn main() -> failure::Fallible<()> {
     home.push("distiluse-base-multilingual-cased");
     home.push("0_DistilBERT");
     println!("Path {:?}", home);
-    let config_path = &home.as_path().join("config.json");
-    let vocab_path = &home.as_path().join("vocab.txt");
-    let weights_path = &home.as_path().join("model.ot");
+    let config_path = home.join("config.json");
+    let vocab_path = home.join("vocab.txt");
+    let weights_path = home.join("model.ot");
 
     if !config_path.is_file() | !vocab_path.is_file() | !weights_path.is_file() {
-        return Err(err_msg(
-            "Could not find required resources to run example. \
-                          Please run ../utils/prepare_distilbert.py \
-                          in a Python environment with dependencies listed in ../requirements.txt",
-        ));
+        eprintln!("Could not find required resources to run example.");
+        eprintln!("\tPlease run ../utils/prepare_distilbert.py");
+        eprintln!("\tin a Python environment with dependencies listed in ../requirements.txt");
+        process::exit(1);
     }
 
     //    Set-up masked LM model
     let device = Device::Cpu;
     let mut vs = nn::VarStore::new(device);
-    let tokenizer: BertTokenizer = BertTokenizer::from_file(vocab_path.to_str().unwrap(), false);
-    let config = DistilBertConfig::from_file(config_path);
+    let tokenizer: BertTokenizer = BertTokenizer::from_file(&vocab_path.to_string_lossy(), false);
+    let config = DistilBertConfig::from_file(&config_path);
     let distil_bert_model = DistilBertModel::new(&vs.root(), &config);
-    vs.load(weights_path)?;
+    vs.load(weights_path).unwrap();
 
     // Dense
     let mut vs_dense = nn::VarStore::new(device);
@@ -74,19 +67,18 @@ fn main() -> failure::Fallible<()> {
     };
     home.pop();
     home.push("2_Dense");
-    let config_path = &home.as_path().join("config.json");
+    let _config_path = &home.as_path().join("config.json");
     let weights_path = &home.as_path().join("model.ot");
     let linear = nn::linear(&vs_dense.root(), 768, 512, cfg);
-    vs_dense.load(weights_path)?;
+    vs_dense.load(weights_path).unwrap();
 
     //    Define input
-    let input = [
-        "TTThis player needs tp be reported lolz."
-    ];
+    let input = ["TTThis player needs tp be reported lolz."];
     let tokenized_input =
         tokenizer.encode_list(input.to_vec(), 128, &TruncationStrategy::LongestFirst, 0);
-    
+
     println!("tokenized {:?}", tokenized_input);
+
     let max_len = tokenized_input
         .iter()
         .map(|input| input.token_ids.len())
@@ -99,16 +91,13 @@ fn main() -> failure::Fallible<()> {
             input.extend(vec![0; max_len - input.len()]);
             input
         })
-        .collect::<Vec<_>>();
-
-    let tokenized_input = tokenized_input
-        .iter()
         .map(|input| Tensor::of_slice(&(input)))
         .collect::<Vec<_>>();
     println!("tokenized {:?}", tokenized_input);
-    let input_tensor = Tensor::stack(tokenized_input.as_slice(), 0).to(device);
 
+    let input_tensor = Tensor::stack(tokenized_input.as_slice(), 0).to(device);
     println!("tensor {:?}", input_tensor);
+
     //    Forward pass
     let (mut output, hidden_states, attention) = no_grad(|| {
         distil_bert_model
@@ -137,6 +126,4 @@ fn main() -> failure::Fallible<()> {
     println!("embeddings: {:?}", output.get(0).get(0));
     println!("embeddings: {:?}", output.get(0).get(1));
     println!("embeddings: {:?}", output.get(0).get(2));
-
-    Ok(())
 }

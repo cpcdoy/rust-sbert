@@ -1,2 +1,5 @@
-pub mod dense;
-pub mod pooling;
+mod dense;
+mod pooling;
+
+pub use dense::Dense;
+pub use pooling::Pooling;
