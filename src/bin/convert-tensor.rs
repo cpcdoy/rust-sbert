@@ -10,13 +10,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
-extern crate failure;
-extern crate tch;
+use failure::ensure;
 
 pub fn main() -> failure::Fallible<()> {
     let args: Vec<_> = std::env::args().collect();
-    ensure!(args.len() == 3, "usage: {} source.npz destination.ot", args[0]);
+    ensure!(
+        args.len() == 3,
+        "usage: {} source.npz destination.ot",
+        args[0]
+    );
 
     let source_file = &args[1];
     let destination_file = &args[2];
