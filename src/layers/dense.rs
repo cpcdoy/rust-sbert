@@ -39,6 +39,7 @@ impl Dense {
         let init_conf = nn::LinearConfig {
             ws_init: nn::Init::Const(0.),
             bs_init: Some(nn::Init::Const(0.)),
+            bias: true,
         };
 
         let config_file = dense_dir.join("config.json");
