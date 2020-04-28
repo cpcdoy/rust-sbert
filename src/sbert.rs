@@ -33,6 +33,8 @@ impl SBert {
         let dense = Dense::new(root.clone())?;
 
         let device = Device::cuda_if_available();
+        println!("Using device {:?}", device);
+
         let mut vs = nn::VarStore::new(device);
 
         let tokenizer = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
