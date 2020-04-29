@@ -8,12 +8,27 @@ edition = "2018"
 name = "sbert_test"
 path = "tests/test_sbert.rs"
 
+[[bench]]
+name = "sbert_bench"
+path = "benches/bench_sbert.rs"
+harness = false
+
+[dev-dependencies]
+criterion = "0.3"
+
 [dependencies]
 failure = "0.1"
 rust_tokenizers = "2.0"
+tokenizers = "0.10.1"
 tch = "0.1.7"
 thiserror = "1.0"
 rust-bert = "0.7"
 serde = "1.0"
 strum = "0.18"
 strum_macros = "0.18"
+tonic = "0.2"
+prost = "0.6"
+tokio = { version = "0.2", features = ["macros"] }
+
+[build-dependencies]
+tonic-build = "0.2"
