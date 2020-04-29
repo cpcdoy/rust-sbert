@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package services.embedder;
+
+message Vector
+{
+    repeated float v=1  [packed=true];
+}
+
+message Query
+{
+    repeated string texts=1;
+}
+
+message Response
+{
+    repeated Vector vecs=1;
+}
+
+// Embedder service provides stuffs
+service Embedder
+{
+    rpc vectorize(Query) returns (Response) {}
+}
