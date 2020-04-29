@@ -1,36 +1,40 @@
 use std::env;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
-use crate::Error;
+use sbert_rs::Error;
 
 use tonic::{transport::Server, Request, Response, Status};
 
-use sbert_rs::SBert;
 use service::embedder_server::{Embedder, EmbedderServer};
 
 pub mod service {
     tonic::include_proto!("services.embedder");
 }
 
-pub struct EmbedderSBert {
-    model: SBert,
+pub struct SBert {
+    model: sbert_rs::SBert,
 }
 
-impl EmbedderSBert {
+impl SBert {
     pub fn new() -> Result<Self, Error> {
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
 
         println!("Loading sbert_rs ...");
-        let model = SBert::new(home).unwrap();
+        let model = sbert_rs::SBert::new(home).unwrap();
 
-        EmbedderSBert { model }
+        Ok(SBert { model })
     }
 }
 
+unsafe impl Send for SBert {}
+
+struct SBertSync(Mutex<SBert>);
+
 #[tonic::async_trait]
-impl Embedder for EmbedderSBert {
+impl Embedder for SBertSync {
     async fn vectorize(
         &self,
         query: Request<service::Query>,
@@ -38,7 +42,7 @@ impl Embedder for EmbedderSBert {
         let texts = vec!["TTThis player needs tp be reported lolz."; 100];
 
         println!("Encoding {:?}...", texts[0]);
-        let output = self.model.encode(&texts).unwrap();
+        let output = self.0.lock().unwrap().model.encode(&texts).unwrap();
 
         let r = output.get(0).slice(0, 0, 5, 1);
         r.print();
@@ -57,7 +61,8 @@ impl Embedder for EmbedderSBert {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50050".parse()?;
     println!("Starting SBert server on {}", addr);
-    let embedder = EmbedderSBert::new();
+    let embedder = SBert::new()?;
+    let embedder = SBertSync(Mutex::new(embedder));
 
     Server::builder()
         .add_service(EmbedderServer::new(embedder))
