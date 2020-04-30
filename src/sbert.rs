@@ -9,13 +9,15 @@ use tch::{nn, no_grad, Device, Tensor};
 use crate::layers::{Dense, Pooling};
 use crate::Error;
 
-trait Tokenizer {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>;
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<u32>;
+pub trait Tokenizer {
+    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    where
+        Self: Sized;
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Tensor>;
 }
 
 pub struct SBert<T: Tokenizer> {
-    lm_model: DistilBertModel,  
+    lm_model: DistilBertModel,
     pooling: Pooling,
     dense: Dense,
     tokenizer: T,
@@ -26,7 +28,16 @@ struct RustTokenizers {
 }
 
 impl Tokenizer for RustTokenizers {
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<u32> {
+    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Tensor> {
+        use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::Tokenizer;
+
         let tokenized_input = self.tokenizer.encode_list(
             input.iter().map(|v| v.as_ref()).collect::<Vec<_>>(),
             128,
@@ -54,9 +65,7 @@ impl Tokenizer for RustTokenizers {
     }
 }
 
-//impl Tokenizer for
-
-impl SBert<T: Tokenizer> {
+impl<T: Tokenizer> SBert<T> {
     pub fn new<P: Into<PathBuf>>(root: P) -> Result<Self, Error> {
         let root = root.into();
         let model_dir = root.join("0_DistilBERT");
@@ -78,7 +87,7 @@ impl SBert<T: Tokenizer> {
         let mut vs = nn::VarStore::new(device);
 
         //let tokenizer = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
-        let tokenizer = <dyn sbert::Tokenizer as Trait>::new();
+        let tokenizer = T::new(&vocab_file)?;
         let lm_model = DistilBertModel::new(&vs.root(), &config);
 
         vs.load(weights_file).map_err(|e| Error::VarStore(e))?;
@@ -91,11 +100,11 @@ impl SBert<T: Tokenizer> {
         })
     }
 
-    pub fn encode<T: AsRef<str>>(&self, input: &[T]) -> Result<Tensor, Error> {
+    pub fn encode<S: AsRef<str>>(&self, input: &[S]) -> Result<Tensor, Error> {
         let device = Device::cuda_if_available();
 
         let tokenized_input = self.tokenizer.tokenize(input);
-        let input_tensor = Tensor::stack(tokenized_input.as_slice(), 0).to(device);
+        let input_tensor = Tensor::stack(&tokenized_input.as_slice(), 0).to(device);
 
         let (output, _, _) = self
             .forward_t(Some(input_tensor), None)
