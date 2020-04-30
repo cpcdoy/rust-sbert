@@ -50,10 +50,13 @@ impl SBert {
         })
     }
 
-    pub fn encode(&self, input: &[&str]) -> Result<Tensor, Error> {
-        let tokenized_input =
-            self.tokenizer
-                .encode_list(input.to_vec(), 128, &TruncationStrategy::LongestFirst, 0);
+    pub fn encode<T: AsRef<str>>(&self, input: &[T]) -> Result<Tensor, Error> {
+        let tokenized_input = self.tokenizer.encode_list(
+            input.iter().map(|v| v.as_ref()).collect::<Vec<_>>(),
+            128,
+            &TruncationStrategy::LongestFirst,
+            0,
+        );
 
         let max_len = tokenized_input
             .iter()

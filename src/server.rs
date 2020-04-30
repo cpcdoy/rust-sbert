@@ -1,6 +1,6 @@
 use std::env;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 
 use sbert_rs::Error;
 
@@ -39,19 +39,25 @@ impl Embedder for SBertSync {
         &self,
         query: Request<service::Query>,
     ) -> Result<Response<service::Response>, Status> {
-        let texts = vec!["TTThis player needs tp be reported lolz."; 100];
+        let texts = Vec::from(query.into_inner().texts);
 
-        println!("Encoding {:?}...", texts[0]);
-        let output = self.0.lock().unwrap().model.encode(&texts).unwrap();
+        println!("Encoding {:?}", texts.len());
 
-        let r = output.get(0).slice(0, 0, 5, 1);
-        r.print();
+        let output = self
+            .0
+            .lock()
+            .await
+            .model
+            .encode(texts.as_slice())
+            .unwrap();
 
-        let vector = service::Vector { v: vec![0.0; 10] };
-        let vec_vectors = vec![vector; 10];
+        let r = Vec::<Vec<f32>>::from(output);
+        let vecs = r
+            .iter()
+            .map(|v| service::Vector { v: v.clone() })
+            .collect::<Vec<_>>();
 
-        let reply = service::Response { vecs: vec_vectors };
-        println!("reply: {:?}", reply);
+        let reply = service::Response { vecs: vecs };
 
         Ok(Response::new(reply))
     }
