@@ -4,6 +4,14 @@ version = "0.1.0"
 authors = ["Chady Dimachkie <chady.dimachkie@gmail.com>"]
 edition = "2018"
 
+[[bin]] # gRPC server
+name = "sbert_server"
+path = "src/server.rs"
+
+[[bin]] # gRPC client
+name = "sbert_client"
+path = "src/client.rs"
+
 [[test]]
 name = "sbert_test"
 path = "tests/test_sbert.rs"
