@@ -16,23 +16,42 @@ use tokenizers::tokenizer;
 use rust_tokenizers::bert_tokenizer::BertTokenizer;
 use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
 
-use sbert_rs::SBert;
+use sbert_rs::{SBertHF, SBertRT};
 
-fn bench_sbert(c: &mut Criterion) {
+fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     let mut home: PathBuf = env::current_dir().unwrap();
     home.push("models");
     home.push("distiluse-base-multilingual-cased");
 
     println!("Loading sbert_rs ...");
-    let sbert_model = SBert::new(home).unwrap();
+    let sbert_model = SBertRT::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
-    let texts = vec![text; 1000];
+    let texts = vec![text; 100];
 
-    c.bench_function("Encode batch 1", |b| {
+    c.bench_function("Encode batch rust_tokenizers 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text])).unwrap())
     });
-    c.bench_function("Encode batch 1000", |b| {
+    c.bench_function("Encode batch rust_tokenizers 100", |b| {
+        b.iter(|| sbert_model.encode(black_box(&texts)).unwrap())
+    });
+}
+
+fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
+    let mut home: PathBuf = env::current_dir().unwrap();
+    home.push("models");
+    home.push("distiluse-base-multilingual-cased");
+
+    println!("Loading sbert_rs ...");
+    let sbert_model = SBertHF::new(home).unwrap();
+
+    let text = "TTThis player needs tp be reported lolz.";
+    let texts = vec![text; 100];
+
+    c.bench_function("Encode batch hugging face tokenizer 1", |b| {
+        b.iter(|| sbert_model.encode(black_box(&[text])).unwrap())
+    });
+    c.bench_function("Encode batch hugging face tokenizer 100", |b| {
         b.iter(|| sbert_model.encode(black_box(&texts)).unwrap())
     });
 }
@@ -93,7 +112,8 @@ fn bench_tokenizers(c: &mut Criterion) {
     let tokenizer_rust_tokenizers = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
     let tokenizer_hugging_face = get_bert(vocab_file.to_str().unwrap());
 
-    let encode_input = input.clone()
+    let encode_input = input
+        .clone()
         .into_iter()
         .map(|s| tokenizer::EncodeInput::Single(s.into()))
         .collect::<Vec<_>>();
@@ -121,7 +141,7 @@ fn sample_size_10() -> Criterion {
 criterion_group!(
     name = benches;
     config = sample_size_10();
-    targets = bench_sbert,
+    targets = bench_sbert_rust_tokenizers, bench_sbert_hugging_face_tokenizers,
     bench_tokenizers
 );
 criterion_main!(benches);

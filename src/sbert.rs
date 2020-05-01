@@ -2,67 +2,17 @@ use std::path::PathBuf;
 
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
-use rust_tokenizers::bert_tokenizer::BertTokenizer;
-use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::TruncationStrategy;
 use tch::{nn, no_grad, Device, Tensor};
 
 use crate::layers::{Dense, Pooling};
+use crate::tokenizers::{Tokenizer};
 use crate::Error;
-
-pub trait Tokenizer {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
-    where
-        Self: Sized;
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Tensor>;
-}
 
 pub struct SBert<T: Tokenizer> {
     lm_model: DistilBertModel,
     pooling: Pooling,
     dense: Dense,
     tokenizer: T,
-}
-
-struct RustTokenizers {
-    tokenizer: BertTokenizer,
-}
-
-impl Tokenizer for RustTokenizers {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        todo!()
-    }
-
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Tensor> {
-        use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::Tokenizer;
-
-        let tokenized_input = self.tokenizer.encode_list(
-            input.iter().map(|v| v.as_ref()).collect::<Vec<_>>(),
-            128,
-            &TruncationStrategy::LongestFirst,
-            0,
-        );
-
-        let max_len = tokenized_input
-            .iter()
-            .map(|input| input.token_ids.len())
-            .max()
-            .unwrap_or_else(|| 0);
-
-        let tokenized_input = tokenized_input
-            .into_iter()
-            .map(|input| input.token_ids)
-            .map(|mut input| {
-                input.extend(vec![0; max_len - input.len()]);
-                input
-            })
-            .map(|input| Tensor::of_slice(&(input)))
-            .collect::<Vec<_>>();
-
-        tokenized_input
-    }
 }
 
 impl<T: Tokenizer> SBert<T> {
@@ -86,7 +36,6 @@ impl<T: Tokenizer> SBert<T> {
 
         let mut vs = nn::VarStore::new(device);
 
-        //let tokenizer = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
         let tokenizer = T::new(&vocab_file)?;
         let lm_model = DistilBertModel::new(&vs.root(), &config);
 
