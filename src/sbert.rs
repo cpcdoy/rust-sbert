@@ -2,21 +2,20 @@ use std::path::PathBuf;
 
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
-use rust_tokenizers::bert_tokenizer::BertTokenizer;
-use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
 use tch::{nn, no_grad, Device, Tensor};
 
 use crate::layers::{Dense, Pooling};
+use crate::tokenizers::{Tokenizer};
 use crate::Error;
 
-pub struct SBert {
+pub struct SBert<T: Tokenizer> {
     lm_model: DistilBertModel,
     pooling: Pooling,
     dense: Dense,
-    tokenizer: BertTokenizer,
+    tokenizer: T,
 }
 
-impl SBert {
+impl<T: Tokenizer> SBert<T> {
     pub fn new<P: Into<PathBuf>>(root: P) -> Result<Self, Error> {
         let root = root.into();
         let model_dir = root.join("0_DistilBERT");
@@ -37,7 +36,7 @@ impl SBert {
 
         let mut vs = nn::VarStore::new(device);
 
-        let tokenizer = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
+        let tokenizer = T::new(&vocab_file)?;
         let lm_model = DistilBertModel::new(&vs.root(), &config);
 
         vs.load(weights_file).map_err(|e| Error::VarStore(e))?;
@@ -50,32 +49,11 @@ impl SBert {
         })
     }
 
-    pub fn encode<T: AsRef<str>>(&self, input: &[T]) -> Result<Tensor, Error> {
-        let tokenized_input = self.tokenizer.encode_list(
-            input.iter().map(|v| v.as_ref()).collect::<Vec<_>>(),
-            128,
-            &TruncationStrategy::LongestFirst,
-            0,
-        );
-
-        let max_len = tokenized_input
-            .iter()
-            .map(|input| input.token_ids.len())
-            .max()
-            .unwrap_or_else(|| 0);
-
-        let tokenized_input = tokenized_input
-            .into_iter()
-            .map(|input| input.token_ids)
-            .map(|mut input| {
-                input.extend(vec![0; max_len - input.len()]);
-                input
-            })
-            .map(|input| Tensor::of_slice(&(input)))
-            .collect::<Vec<_>>();
-
+    pub fn encode<S: AsRef<str>>(&self, input: &[S]) -> Result<Tensor, Error> {
         let device = Device::cuda_if_available();
-        let input_tensor = Tensor::stack(tokenized_input.as_slice(), 0).to(device);
+
+        let tokenized_input = self.tokenizer.tokenize(input);
+        let input_tensor = Tensor::stack(&tokenized_input.as_slice(), 0).to(device);
 
         let (output, _, _) = self
             .forward_t(Some(input_tensor), None)

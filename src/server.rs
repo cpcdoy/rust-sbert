@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
-use sbert_rs::Error;
+use sbert_rs::{SBertHF, Error};
 
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -13,7 +13,7 @@ pub mod service {
 }
 
 pub struct SBert {
-    model: sbert_rs::SBert,
+    model: SBertHF,
 }
 
 impl SBert {
@@ -23,7 +23,7 @@ impl SBert {
         home.push("distiluse-base-multilingual-cased");
 
         println!("Loading sbert_rs ...");
-        let model = sbert_rs::SBert::new(home).unwrap();
+        let model = SBertHF::new(home).unwrap();
 
         Ok(SBert { model })
     }
