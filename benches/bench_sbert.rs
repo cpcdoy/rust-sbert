@@ -18,7 +18,11 @@ use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, Trunc
 
 use sbert_rs::{SBertHF, SBertRT};
 
+//Windows Hack
+use torch_sys::dummy_cuda_dependency;
+
 fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
+    unsafe{ dummy_cuda_dependency(); } //Windows Hack
     let mut home: PathBuf = env::current_dir().unwrap();
     home.push("models");
     home.push("distiluse-base-multilingual-cased");
@@ -38,6 +42,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
 }
 
 fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
+    unsafe{ dummy_cuda_dependency(); } //Windows Hack
     let mut home: PathBuf = env::current_dir().unwrap();
     home.push("models");
     home.push("distiluse-base-multilingual-cased");

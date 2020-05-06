@@ -1625,6 +1625,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+ "torch-sys",
 ]
 
 [[package]]

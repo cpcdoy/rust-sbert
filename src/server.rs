@@ -8,6 +8,9 @@ use tonic::{transport::Server, Request, Response, Status};
 
 use service::embedder_server::{Embedder, EmbedderServer};
 
+//Windows Hack
+use torch_sys::dummy_cuda_dependency;
+
 pub mod service {
     tonic::include_proto!("services.embedder");
 }
@@ -18,6 +21,7 @@ pub struct SBert {
 
 impl SBert {
     pub fn new() -> Result<Self, Error> {
+        unsafe{ dummy_cuda_dependency(); } //Windows Hack
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distiluse-base-multilingual-cased");

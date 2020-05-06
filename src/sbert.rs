@@ -64,7 +64,7 @@ impl<T: Tokenizer> SBert<T> {
         Ok(linear_tanh)
     }
 
-    pub fn forward_t(
+    fn forward_t(
         &self,
         input: Option<Tensor>,
         mask: Option<Tensor>,
