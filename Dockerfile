@@ -67,7 +67,7 @@ CMD ["sh", "-c", "echo ${TARGET}"]
 # Final Stage
 # -----------------
 
-FROM nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 AS final
+FROM nvidia/cuda:$CUDA_VER-cudnn7-runtime-ubuntu18.04 AS final
 ARG TARGET
 ARG CUDA_VER
 
