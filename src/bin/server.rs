@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
-use sbert_rs::{SBertHF, Error};
+use sbert_rs::{Error, SBertHF};
 
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -43,13 +43,7 @@ impl Embedder for SBertSync {
 
         println!("Encoding {:?}", texts.len());
 
-        let output = self
-            .0
-            .lock()
-            .await
-            .model
-            .encode(texts.as_slice())
-            .unwrap();
+        let output = self.0.lock().await.model.encode(texts.as_slice()).unwrap();
 
         let r = Vec::<Vec<f32>>::from(output);
         let vecs = r
@@ -65,7 +59,11 @@ impl Embedder for SBertSync {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50050".parse()?;
+    let addr = match env::var("EMBEDDER_PORT") {
+        Ok(val) => val.parse()?,
+        Err(_e) => "[::1]:50050".parse()?,
+    };
+
     println!("Starting SBert server on {}", addr);
     let embedder = SBert::new()?;
     let embedder = SBertSync(Mutex::new(embedder));

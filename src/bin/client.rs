@@ -6,7 +6,7 @@ pub mod service {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = EmbedderClient::connect("http://[::1]:50050").await?;
+    let mut client = EmbedderClient::connect("http://[::1]:50051").await?;
 
     for i in 1..100 {
         let request = tonic::Request::new(service::Query {

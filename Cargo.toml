@@ -4,22 +4,22 @@ version = "0.1.0"
 authors = ["Chady Dimachkie <chady.dimachkie@gmail.com>"]
 edition = "2018"
 
-[[bin]] # gRPC server
-name = "sbert_server"
-path = "src/server.rs"
-
-[[bin]] # gRPC client
-name = "sbert_client"
-path = "src/client.rs"
-
-[[test]]
-name = "sbert_test"
-path = "tests/test_sbert.rs"
-
-[[bench]]
-name = "sbert_bench"
-path = "benches/bench_sbert.rs"
-harness = false
+#[[bin]] # gRPC server
+#name = "sbert_server"
+#path = "src/server.rs"
+#
+#[[bin]] # gRPC client
+#name = "sbert_client"
+#path = "src/client.rs"
+#
+#[[test]]
+#name = "sbert_test"
+#path = "tests/test_sbert.rs"
+#
+#[[bench]]
+#name = "sbert_bench"
+#path = "benches/bench_sbert.rs"
+#harness = false
 
 [dev-dependencies]
 criterion = "0.3"
@@ -35,8 +35,20 @@ serde = "1.0"
 strum = "0.18"
 strum_macros = "0.18"
 tonic = "0.2"
+tonic-build = { version = "0.2", optional = true }
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros"] }
+openssl-sys = { version = "*", features = ["vendored"] }
+#libc = { version = "*", default-features = false }
+#libm = "0.2"
 
 [build-dependencies]
 tonic-build = "0.2"
+
+[features]
+build_deps = ["tonic-build"]
+
+[[bin]]
+name = "force-build"
+path = "build.rs"
+required-features = ["build_deps"]
