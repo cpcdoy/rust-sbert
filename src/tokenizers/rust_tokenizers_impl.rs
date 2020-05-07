@@ -21,7 +21,7 @@ impl Tokenizer for RustTokenizers {
         Ok(Self { tokenizer })
     }
 
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Tensor> {
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::Tokenizer;
 
         let tokenized_input = self.tokenizer.encode_list(
@@ -47,6 +47,6 @@ impl Tokenizer for RustTokenizers {
             .map(|input| Tensor::of_slice(&(input)))
             .collect::<Vec<_>>();
 
-        tokenized_input
+        (tokenized_input, Vec::new())
     }
 }

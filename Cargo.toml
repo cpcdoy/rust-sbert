@@ -38,9 +38,9 @@ tonic = "0.2"
 tonic-build = { version = "0.2", optional = true }
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros"] }
-openssl-sys = { version = "*", features = ["vendored"] }
-#libc = { version = "*", default-features = false }
-#libm = "0.2"
+libmath = "0.2"
+torch-sys = "0.1.7" # Windows Hack
+#openssl-sys = { version = "*", features = ["vendored"] }
 
 [build-dependencies]
 tonic-build = "0.2"

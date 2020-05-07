@@ -11,7 +11,13 @@ def test_sbert():
 
     print("Loaded model in", t2 - t1, "s")
 
+
     texts = ["TTThis player needs tp be reported lolz."] * 100
+
+    test_arr = [texts[0], "a", "b", "c"]
+    enc = sbert_model.encode(test_arr)
+    print("test encode:", [e[:5] for e in enc])
+    print("token encode:", [sbert_model.tokenize(s) for s in test_arr])
 
     print("Encoding", texts[0], "...")
     t = 0
