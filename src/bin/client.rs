@@ -15,7 +15,7 @@ fn rand_string() -> String {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = EmbedderClient::connect("http://[::1]:50050").await?;
 
-    for i in 1..100 {
+    for i in 1..10 {
         let mut texts = Vec::new();
         for _ in 0..1000 {
             texts.push(rand_string());

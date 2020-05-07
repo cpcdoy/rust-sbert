@@ -64,9 +64,6 @@ impl<T: Tokenizer> SBert<T> {
         let device = Device::cuda_if_available();
 
         let (tokenized_input, attention) = self.tokenizer.tokenize(input);
-        //let attention_mask = Tensor::stack(&attention, 0).to(device);
-        ////let attention_mask_c = Tensor::stack(&attention, 0).to(device);
-        //let input_tensor = Tensor::stack(&tokenized_input, 0).to(device);
 
         let input_len = input.len();
         let mut batch_tensors: Vec<Tensor> = Vec::new();
@@ -82,18 +79,6 @@ impl<T: Tokenizer> SBert<T> {
             let batch_attention_c = batch_attention.shallow_clone();
             let batch_tensor = Tensor::stack(&tokenized_input[range], 0).to(device);
 
-            /*let batch_tensor =
-                input_tensor.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
-            let batch_attention =
-                attention_mask.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
-            let batch_attention_c =
-                attention_mask.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);*/
-
-            /*println!("tensor dim: {:?}", batch_tensor.size());
-            batch_tensor.print();
-            println!("attention dim: {:?}", batch_attention.size());
-            batch_attention.print();*/
-
             let (embeddings, _, _) = self
                 .forward_t(Some(batch_tensor), Some(batch_attention))
                 .map_err(Error::Encoding)?;
@@ -104,9 +89,7 @@ impl<T: Tokenizer> SBert<T> {
             batch_tensors.push(linear_tanh.to(Device::Cpu));
         }
 
-        println!("dims {:?}", batch_tensors.len());
         let stack_batches = Tensor::cat(&batch_tensors, 0);
-        println!("final dim {:?}", stack_batches.size());
         Ok(stack_batches)
     }
 
