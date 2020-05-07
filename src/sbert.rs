@@ -1,9 +1,9 @@
 use std::path::PathBuf;
-use math::round::floor;
+use math::round::ceil;
 
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
-use tch::{nn, no_grad, Device, Tensor};
+use tch::{nn, Device, Tensor};
 
 use crate::layers::{Dense, Pooling};
 use crate::tokenizers::Tokenizer;
@@ -55,35 +55,29 @@ impl<T: Tokenizer> SBert<T> {
         input: &[S],
         batch_size: B,
     ) -> Result<Tensor, Error> {
-        let batch_size = batch_size.into().unwrap_or_else(|| 2);
+        let batch_size = batch_size.into().unwrap_or_else(|| 64);
 
         //println!("Batch size {:?}", batch_size);
+
+        let _guard = tch::no_grad_guard();
 
         let device = Device::cuda_if_available();
 
         let (tokenized_input, attention) = self.tokenizer.tokenize(input);
-        let attention_mask = Tensor::stack(&attention, 0).to(device);
-        //let attention_mask_c = Tensor::stack(&attention, 0).to(device);
-        let input_tensor = Tensor::stack(&tokenized_input, 0).to(device);
 
         let input_len = input.len();
         let mut batch_tensors: Vec<Tensor> = Vec::new();
         batch_tensors.reserve_exact(input_len);
 
         for batch_i in (0..input_len).step_by(batch_size) {
-            println!("Batch {}/{}", floor((batch_i / batch_size) as f64, 0) as usize + 1, floor((input_len / batch_size) as f64, 0) as usize);
+            let max_range = std::cmp::min(batch_i + batch_size, input_len);
+            let range = batch_i..max_range;
 
-            let batch_tensor =
-                input_tensor.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
-            let batch_attention =
-                attention_mask.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
-            let batch_attention_c =
-                attention_mask.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
+            println!("Batch {}/{}, size {}", ceil((batch_i as f64) / (batch_size as f64), 0) as usize, ceil((input_len as f64) / (batch_size as f64), 0) as usize, max_range - batch_i);
 
-            /*println!("tensor dim: {:?}", batch_tensor.size());
-            batch_tensor.print();
-            println!("attention dim: {:?}", batch_attention.size());
-            batch_attention.print();*/
+            let batch_attention = Tensor::stack(&attention[range.clone()], 0).to(device);
+            let batch_attention_c = batch_attention.shallow_clone();
+            let batch_tensor = Tensor::stack(&tokenized_input[range], 0).to(device);
 
             let (embeddings, _, _) = self
                 .forward_t(Some(batch_tensor), Some(batch_attention))
@@ -92,15 +86,10 @@ impl<T: Tokenizer> SBert<T> {
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);
 
-            batch_tensors.push(linear_tanh);
+            batch_tensors.push(linear_tanh.to(Device::Cpu));
         }
 
-        //println!("dims {:?}", batch_tensors.len());
-        let stack_batches = Tensor::stack(&batch_tensors, 0);
-        let shape = stack_batches.size();
-        let reshape = [-1, shape[2]];
-        let stack_batches = stack_batches.reshape(&reshape);
-        //println!("final dim {:?}", stack_batches.size());
+        let stack_batches = Tensor::cat(&batch_tensors, 0);
         Ok(stack_batches)
     }
 
@@ -111,6 +100,6 @@ impl<T: Tokenizer> SBert<T> {
     ) -> Result<(Tensor, Option<Vec<Tensor>>, Option<Vec<Tensor>>), &'static str> {
         let (output, hidden_states, attention) =
             self.lm_model.forward_t(input, mask, None, false)?;
-        Ok(no_grad(|| (output, hidden_states, attention)))
+        Ok((output, hidden_states, attention))
     }
 }

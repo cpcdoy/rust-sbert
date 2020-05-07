@@ -1647,6 +1647,7 @@ dependencies = [
  "failure",
  "libmath",
  "prost",
+ "rand 0.7.3",
  "rust-bert",
  "rust_tokenizers",
  "serde",
