@@ -30,14 +30,21 @@ impl Pooling {
         Pooling { _conf }
     }
 
-    pub fn forward(&self, token_embeddings: &Tensor) -> Tensor {
-        const DIM : [i64; 1] = [1];
+    pub fn forward(&self, token_embeddings: &Tensor, attention_mask: &Tensor) -> Tensor {
+        let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(&token_embeddings);
 
-        let dims = token_embeddings.size();
-        let size = [dims[0], dims[2]];
+        let mut output_vectors = Vec::new();
+        let dim = [1];
 
-        let sum_mask = tch::Tensor::ones(&size, (Kind::Float, token_embeddings.device())) * dims[1];
-        let sum_embeddings = token_embeddings.sum1(&DIM, false, Kind::Float);
-        sum_embeddings / sum_mask
+        let mut sum_mask = input_mask_expanded.copy();
+        sum_mask = sum_mask.sum1(&dim, false, Kind::Float);
+        let sum_embeddings =
+            (token_embeddings * input_mask_expanded).sum1(&dim, false, Kind::Float);
+
+        output_vectors.push(sum_embeddings / sum_mask);
+
+        let output_vector = Tensor::cat(&output_vectors, 1);
+
+        output_vector
     }
 }

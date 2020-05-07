@@ -1,11 +1,12 @@
 use std::path::PathBuf;
+use math::round::floor;
 
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
 use tch::{nn, no_grad, Device, Tensor};
 
 use crate::layers::{Dense, Pooling};
-use crate::tokenizers::{Tokenizer};
+use crate::tokenizers::Tokenizer;
 use crate::Error;
 
 pub struct SBert<T: Tokenizer> {
@@ -49,19 +50,58 @@ impl<T: Tokenizer> SBert<T> {
         })
     }
 
-    pub fn encode<S: AsRef<str>>(&self, input: &[S]) -> Result<Tensor, Error> {
+    pub fn encode<S: AsRef<str>, B: Into<Option<usize>>>(
+        &self,
+        input: &[S],
+        batch_size: B,
+    ) -> Result<Tensor, Error> {
+        let batch_size = batch_size.into().unwrap_or_else(|| 2);
+
+        //println!("Batch size {:?}", batch_size);
+
         let device = Device::cuda_if_available();
 
-        let tokenized_input = self.tokenizer.tokenize(input);
-        let input_tensor = Tensor::stack(&tokenized_input.as_slice(), 0).to(device);
+        let (tokenized_input, attention) = self.tokenizer.tokenize(input);
+        let attention_mask = Tensor::stack(&attention, 0).to(device);
+        //let attention_mask_c = Tensor::stack(&attention, 0).to(device);
+        let input_tensor = Tensor::stack(&tokenized_input, 0).to(device);
 
-        let (output, _, _) = self
-            .forward_t(Some(input_tensor), None)
-            .map_err(Error::Encoding)?;
-        let mean_pool = self.pooling.forward(&output);
-        let linear_tanh = self.dense.forward(&mean_pool);
+        let input_len = input.len();
+        let mut batch_tensors: Vec<Tensor> = Vec::new();
+        batch_tensors.reserve_exact(input_len);
 
-        Ok(linear_tanh)
+        for batch_i in (0..input_len).step_by(batch_size) {
+            println!("Batch {}/{}", floor((batch_i / batch_size) as f64, 0) as usize + 1, floor((input_len / batch_size) as f64, 0) as usize);
+
+            let batch_tensor =
+                input_tensor.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
+            let batch_attention =
+                attention_mask.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
+            let batch_attention_c =
+                attention_mask.slice(0, batch_i as i64, (batch_i + batch_size) as i64, 1);
+
+            /*println!("tensor dim: {:?}", batch_tensor.size());
+            batch_tensor.print();
+            println!("attention dim: {:?}", batch_attention.size());
+            batch_attention.print();*/
+
+            let (embeddings, _, _) = self
+                .forward_t(Some(batch_tensor), Some(batch_attention))
+                .map_err(Error::Encoding)?;
+
+            let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
+            let linear_tanh = self.dense.forward(&mean_pool);
+
+            batch_tensors.push(linear_tanh);
+        }
+
+        //println!("dims {:?}", batch_tensors.len());
+        let stack_batches = Tensor::stack(&batch_tensors, 0);
+        let shape = stack_batches.size();
+        let reshape = [-1, shape[2]];
+        let stack_batches = stack_batches.reshape(&reshape);
+        //println!("final dim {:?}", stack_batches.size());
+        Ok(stack_batches)
     }
 
     pub fn forward_t(
