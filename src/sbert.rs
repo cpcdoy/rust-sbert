@@ -57,8 +57,6 @@ impl<T: Tokenizer> SBert<T> {
     ) -> Result<Tensor, Error> {
         let batch_size = batch_size.into().unwrap_or_else(|| 64);
 
-        //println!("Batch size {:?}", batch_size);
-
         let _guard = tch::no_grad_guard();
 
         let device = Device::cuda_if_available();
@@ -73,7 +71,7 @@ impl<T: Tokenizer> SBert<T> {
             let max_range = std::cmp::min(batch_i + batch_size, input_len);
             let range = batch_i..max_range;
 
-            println!("Batch {}/{}, size {}", ceil((batch_i as f64) / (batch_size as f64), 0) as usize, ceil((input_len as f64) / (batch_size as f64), 0) as usize, max_range - batch_i);
+            println!("Batch {}/{}, size {}", ceil((batch_i as f64) / (batch_size as f64), 0) as usize + 1, ceil((input_len as f64) / (batch_size as f64), 0) as usize, max_range - batch_i);
 
             let batch_attention = Tensor::stack(&attention[range.clone()], 0).to(device);
             let batch_attention_c = batch_attention.shallow_clone();
@@ -93,7 +91,7 @@ impl<T: Tokenizer> SBert<T> {
         Ok(stack_batches)
     }
 
-    pub fn forward_t(
+    fn forward_t(
         &self,
         input: Option<Tensor>,
         mask: Option<Tensor>,

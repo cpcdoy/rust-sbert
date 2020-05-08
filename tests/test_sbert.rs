@@ -32,7 +32,7 @@ mod tests {
 
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
-        let output = sbert_model.encode(&texts).unwrap();
+        let output = sbert_model.encode(&texts, None).unwrap();
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis());
 
         let r = output.get(0).slice(0, 0, 5, 1);
@@ -61,7 +61,7 @@ mod tests {
 
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
-        let output = sbert_model.encode(&texts).unwrap();
+        let output = sbert_model.encode(&texts, None).unwrap();
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis());
 
         let r = output.get(0).slice(0, 0, 5, 1);

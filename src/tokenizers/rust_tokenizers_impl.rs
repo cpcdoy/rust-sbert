@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use tch::Tensor;
 use rust_tokenizers::bert_tokenizer::BertTokenizer;
 use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::TruncationStrategy;
+use tch::Tensor;
 
-use crate::tokenizers::{Tokenizer};
+use crate::tokenizers::Tokenizer;
 use crate::Error;
 
 pub struct RustTokenizers {
@@ -39,14 +39,33 @@ impl Tokenizer for RustTokenizers {
 
         let tokenized_input = tokenized_input
             .into_iter()
-            .map(|input| input.token_ids)
-            .map(|mut input| {
-                input.extend(vec![0; max_len - input.len()]);
-                input
+            //.map(|input| input.token_ids)
+            .map(|input| {
+                let mut token_ids = input.token_ids;
+                token_ids.extend(vec![0; max_len - token_ids.len()]);
+                token_ids
             })
-            .map(|input| Tensor::of_slice(&(input)))
             .collect::<Vec<_>>();
 
-        (tokenized_input, Vec::new())
+        let attention_mask = tokenized_input
+            .iter()
+            .map(|input| {
+                Tensor::of_slice(
+                    &input
+                        .into_iter()
+                        .map(|e| match *e {
+                            0 => 0 as i64,
+                            _ => 1 as i64,
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let tokenized_input = tokenized_input
+            .into_iter()
+            .map(|input| Tensor::of_slice(&(input)))
+            .collect::<Vec<_>>();
+        (tokenized_input, attention_mask)
     }
 }

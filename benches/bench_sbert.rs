@@ -16,6 +16,9 @@ use tokenizers::tokenizer;
 use rust_tokenizers::bert_tokenizer::BertTokenizer;
 use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
 
+//Windows Hack
+use torch_sys::dummy_cuda_dependency;
+
 use sbert_rs::{SBertHF, SBertRT};
 
 fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
@@ -24,16 +27,19 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     home.push("distiluse-base-multilingual-cased");
 
     println!("Loading sbert_rs ...");
+    unsafe {
+        dummy_cuda_dependency();
+    } //Windows Hack
     let sbert_model = SBertRT::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
-    let texts = vec![text; 100];
+    let texts = vec![text; 1000];
 
     c.bench_function("Encode batch rust_tokenizers 1", |b| {
-        b.iter(|| sbert_model.encode(black_box(&[text])).unwrap())
+        b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
     c.bench_function("Encode batch rust_tokenizers 100", |b| {
-        b.iter(|| sbert_model.encode(black_box(&texts)).unwrap())
+        b.iter(|| sbert_model.encode(black_box(&texts), None).unwrap())
     });
 }
 
@@ -46,13 +52,13 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     let sbert_model = SBertHF::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
-    let texts = vec![text; 100];
+    let texts = vec![text; 1000];
 
     c.bench_function("Encode batch hugging face tokenizer 1", |b| {
-        b.iter(|| sbert_model.encode(black_box(&[text])).unwrap())
+        b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
     c.bench_function("Encode batch hugging face tokenizer 100", |b| {
-        b.iter(|| sbert_model.encode(black_box(&texts)).unwrap())
+        b.iter(|| sbert_model.encode(black_box(&texts), None).unwrap())
     });
 }
 
