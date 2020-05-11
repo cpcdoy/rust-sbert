@@ -11,15 +11,15 @@ edition = "2018"
 #[[bin]] # gRPC client
 #name = "sbert_client"
 #path = "src/client.rs"
-#
-#[[test]]
-#name = "sbert_test"
-#path = "tests/test_sbert.rs"
-#
-#[[bench]]
-#name = "sbert_bench"
-#path = "benches/bench_sbert.rs"
-#harness = false
+
+[[test]]
+name = "sbert_test"
+path = "tests/test_sbert.rs"
+
+[[bench]]
+name = "sbert_bench"
+path = "benches/bench_sbert.rs"
+harness = false
 
 [dev-dependencies]
 criterion = "0.3"

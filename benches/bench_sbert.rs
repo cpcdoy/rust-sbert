@@ -21,6 +21,13 @@ use torch_sys::dummy_cuda_dependency;
 
 use sbert_rs::{SBertHF, SBertRT};
 
+use rand::random;
+fn rand_string() -> String {
+    (0..(random::<f32>() * 100.0) as usize)
+        .map(|_| (0x20u8 + (random::<f32>() * 96.0) as u8) as char)
+        .collect()
+}
+
 fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     let mut home: PathBuf = env::current_dir().unwrap();
     home.push("models");
@@ -31,16 +38,24 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
         dummy_cuda_dependency();
     } //Windows Hack
     let sbert_model = SBertRT::new(home).unwrap();
+    let mut texts = Vec::new();
+    for _ in 0..1000 {
+        texts.push(rand_string());
+    }
 
     let text = "TTThis player needs tp be reported lolz.";
-    let texts = vec![text; 1000];
+    //let texts = vec![text; 1000];
 
     c.bench_function("Encode batch rust_tokenizers 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
-    c.bench_function("Encode batch rust_tokenizers 100", |b| {
-        b.iter(|| sbert_model.encode(black_box(&texts), None).unwrap())
-    });
+    for batch_size in (1..8).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+        let batch_size = *batch_size as usize;
+        let s = format!("Encode batch_size {}, rust_tokenizers, total 1000", batch_size);
+        c.bench_function(&s, |b| {
+            b.iter(|| black_box(sbert_model.encode(&texts, batch_size)).unwrap())
+        });
+    }
 }
 
 fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
@@ -57,7 +72,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     c.bench_function("Encode batch hugging face tokenizer 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
-    c.bench_function("Encode batch hugging face tokenizer 100", |b| {
+    c.bench_function("Encode batch hugging face tokenizer 1000", |b| {
         b.iter(|| sbert_model.encode(black_box(&texts), None).unwrap())
     });
 }

@@ -39,7 +39,6 @@ impl Tokenizer for RustTokenizers {
 
         let tokenized_input = tokenized_input
             .into_iter()
-            //.map(|input| input.token_ids)
             .map(|input| {
                 let mut token_ids = input.token_ids;
                 token_ids.extend(vec![0; max_len - token_ids.len()]);

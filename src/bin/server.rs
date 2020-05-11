@@ -51,8 +51,8 @@ impl Embedder for SBertSync {
 
         let output = self.0.lock().await.model.encode(&texts, None).unwrap();
 
-        let r = Vec::<Vec<f32>>::from(output);
-        let vecs = r
+        //let r = Vec::<Vec<f32>>::from(output);
+        let vecs = output
             .iter()
             .map(|v| service::Vector { v: v.clone() })
             .collect::<Vec<_>>();

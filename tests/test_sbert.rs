@@ -32,18 +32,15 @@ mod tests {
 
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
-        let output = sbert_model.encode(&texts, None).unwrap();
+        let output = &sbert_model.encode(&texts, None).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis());
+        println!("Vec: {:?}", output);
 
-        let r = output.get(0).slice(0, 0, 5, 1);
-        r.print();
-
-        let v = (r / 0.01)
-            .iter::<f64>()
-            .unwrap()
+        let v = output
+            .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [-2.2717, -0.6020, 5.5196, 1.8546, -7.5385]);
+        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
     }
 
     #[test]
@@ -61,18 +58,15 @@ mod tests {
 
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
-        let output = sbert_model.encode(&texts, None).unwrap();
+        let output = &sbert_model.encode(&texts, None).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis());
+        println!("Vec: {:?}", output);
 
-        let r = output.get(0).slice(0, 0, 5, 1);
-        r.print();
-
-        let v = (r / 0.01)
-            .iter::<f64>()
-            .unwrap()
+        let v = output
+            .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [-2.2717, -0.6020, 5.5196, 1.8546, -7.5385]);
+        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
     }
 
     pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
