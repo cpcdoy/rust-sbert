@@ -33,8 +33,12 @@ let texts = ["You can encode",
              "As you want",
              "Enjoy ;)"];
 
-let output = sbert_model.encode(texts.to_vec()).unwrap();
+let batch_size = 64;
+
+let output = sbert_model.encode(texts.to_vec(), batch_size).unwrap();
 ```
+
+The parameter `batch_size` can be left to `None` to let the model use its default value.
 
 Then you can use the `output` sentence embedding in any application you want. 
 
