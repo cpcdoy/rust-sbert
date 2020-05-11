@@ -38,6 +38,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
         dummy_cuda_dependency();
     } //Windows Hack
     let sbert_model = SBertRT::new(home).unwrap();
+
     let mut texts = Vec::new();
     for _ in 0..1000 {
         texts.push(rand_string());
@@ -49,7 +50,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     c.bench_function("Encode batch rust_tokenizers 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
-    for batch_size in (1..8).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+    for batch_size in (0..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!("Encode batch_size {}, rust_tokenizers, total 1000", batch_size);
         c.bench_function(&s, |b| {
@@ -67,14 +68,22 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     let sbert_model = SBertHF::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
-    let texts = vec![text; 1000];
+    let mut texts = Vec::new();
+    for _ in 0..1000 {
+        texts.push(rand_string());
+    }
 
     c.bench_function("Encode batch hugging face tokenizer 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
-    c.bench_function("Encode batch hugging face tokenizer 1000", |b| {
-        b.iter(|| sbert_model.encode(black_box(&texts), None).unwrap())
-    });
+
+    for batch_size in (0..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+        let batch_size = *batch_size as usize;
+        let s = format!("Encode batch_size {}, hugging face tokenizer, total 1000", batch_size);
+        c.bench_function(&s, |b| {
+            b.iter(|| black_box(sbert_model.encode(&texts, batch_size)).unwrap())
+        });
+    }
 }
 
 pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
@@ -128,12 +137,12 @@ fn bench_tokenizers(c: &mut Criterion) {
 
     let vocab_file = model_dir.join("vocab.txt");
 
-    let input = vec!["TTThis player needs tp be reported lolz."; 1000];
+    let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
 
     let tokenizer_rust_tokenizers = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
     let tokenizer_hugging_face = get_bert(vocab_file.to_str().unwrap());
 
-    let encode_input = input
+    let encode_input = texts
         .clone()
         .into_iter()
         .map(|s| tokenizer::EncodeInput::Single(s.into()))
@@ -148,7 +157,7 @@ fn bench_tokenizers(c: &mut Criterion) {
             .collect::<Vec<_>>()
     };
 
-    let closure_2 = || tokenize_rust_tokenizers(&tokenizer_rust_tokenizers, input.clone());
+    let closure_2 = || tokenize_rust_tokenizers(&tokenizer_rust_tokenizers, texts.clone());
     c.bench_function("Tokenizer: Hugging Face, batch 1000", |b| b.iter(closure));
     c.bench_function("Tokenizer: Rust tokenizers, batch 1000", |b| {
         b.iter(closure_2)
