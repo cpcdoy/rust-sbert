@@ -41,6 +41,7 @@ tokio = { version = "0.2", features = ["macros"] }
 libmath = "0.2"
 rand = "0.7"
 torch-sys = "0.1.7" # Windows Hack
+crossbeam = "0.3"
 #openssl-sys = { version = "*", features = ["vendored"] }
 
 [build-dependencies]

@@ -49,7 +49,7 @@ impl Embedder for SBertSync {
 
         println!("Encoding {:?}", texts.len());
 
-        let output = self.0.lock().await.model.encode(&texts, None).unwrap();
+        let output = &self.0.lock().await.model.encode(&texts, None).unwrap();
 
         //let r = Vec::<Vec<f32>>::from(output);
         let vecs = output
