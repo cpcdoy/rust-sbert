@@ -14,6 +14,7 @@ mod tests {
     use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{
         Tokenizer, TruncationStrategy,
     };
+    use torch_sys::dummy_cuda_dependency;
 
     use sbert_rs::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
 
@@ -26,6 +27,10 @@ mod tests {
 
     #[test]
     fn test_safe_sbert_rust_tokenizers() {
+        unsafe {
+            dummy_cuda_dependency();
+        } //Windows Hack
+
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
@@ -45,7 +50,7 @@ mod tests {
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
         for _ in 0..9 {
-            &sbert_model.par_encode(&texts, 64).unwrap()[0][..5];
+            &sbert_model.par_encode(&texts, 64).unwrap();
         }
         let output = &sbert_model.par_encode(&texts, 64).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
@@ -60,6 +65,9 @@ mod tests {
 
     #[test]
     fn test_safe_sbert_hugging_face_tokenizers() {
+        unsafe {
+            dummy_cuda_dependency();
+        } //Windows Hack
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distiluse-base-multilingual-cased");

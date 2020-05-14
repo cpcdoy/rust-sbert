@@ -28,7 +28,6 @@ fn rand_string() -> String {
         .collect()
 }
 
-
 fn bench_safe_sbert_rust_tokenizers(c: &mut Criterion) {
     let mut home: PathBuf = env::current_dir().unwrap();
     home.push("models");
@@ -43,18 +42,18 @@ fn bench_safe_sbert_rust_tokenizers(c: &mut Criterion) {
         texts.push(rand_string());
     }
 
-    /*c.bench_function("Encode batch safe sbert rust tokenizer 1", |b| {
+    c.bench_function("Encode batch, safe sbert rust tokenizer, total 1", |b| {
         b.iter(|| sbert_model.par_encode(black_box(&[text]), None).unwrap())
-    });*/
+    });
 
-    for batch_size in (0..1).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+    for batch_size in (0..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!(
             "Encode batch_size {}, safe sbert, rust tokenizer, total 1000",
             batch_size
         );
         c.bench_function(&s, |b| {
-            b.iter(|| black_box(sbert_model.par_encode(&texts, 100)).unwrap())
+            b.iter(|| black_box(sbert_model.par_encode(&texts, batch_size)).unwrap())
         });
     }
 }
@@ -73,18 +72,19 @@ fn bench_safe_sbert_hugging_face_tokenizers(c: &mut Criterion) {
         texts.push(rand_string());
     }
 
-    /*c.bench_function("Encode batch safe sbert hugging face tokenizer 1", |b| {
-        b.iter(|| sbert_model.par_encode(black_box(&[text]), None).unwrap())
-    });*/
+    c.bench_function(
+        "Encode batch, safe sbert, hugging face tokenizer, total 1",
+        |b| b.iter(|| sbert_model.par_encode(black_box(&[text]), None).unwrap()),
+    );
 
-    for batch_size in (0..1).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+    for batch_size in (0..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!(
             "Encode batch_size {}, safe sbert, hugging face tokenizer, total 1000",
             batch_size
         );
         c.bench_function(&s, |b| {
-            b.iter(|| black_box(sbert_model.par_encode(&texts, 100)).unwrap())
+            b.iter(|| black_box(sbert_model.par_encode(&texts, batch_size)).unwrap())
         });
     }
 }
@@ -98,17 +98,16 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     let sbert_model = SBertRT::new(home).unwrap();
 
     let mut texts = Vec::new();
-    for _ in 0..1000 {
+    for _ in 0..10 {
         texts.push(rand_string());
     }
 
     let text = "TTThis player needs tp be reported lolz.";
-    //let texts = vec![text; 1000];
 
     c.bench_function("Encode batch rust_tokenizers 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
-    for batch_size in (7..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+    for batch_size in (0..5).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!(
             "Encode batch_size {}, rust_tokenizers, total 1000",
@@ -130,7 +129,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
 
     let text = "TTThis player needs tp be reported lolz.";
     let mut texts = Vec::new();
-    for _ in 0..1000 {
+    for _ in 0..10 {
         texts.push(rand_string());
     }
 
@@ -138,7 +137,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
 
-    for batch_size in (7..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+    for batch_size in (0..5).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!(
             "Encode batch_size {}, hugging face tokenizer, total 1000",
@@ -235,7 +234,7 @@ fn sample_size_10() -> Criterion {
 criterion_group!(
     name = benches;
     config = sample_size_10();
-    targets = bench_safe_sbert_rust_tokenizers, bench_safe_sbert_hugging_face_tokenizers//, bench_sbert_rust_tokenizers, bench_sbert_hugging_face_tokenizers,
-    ,bench_tokenizers
+    targets = bench_safe_sbert_rust_tokenizers, bench_safe_sbert_hugging_face_tokenizers, bench_sbert_rust_tokenizers, bench_sbert_hugging_face_tokenizers,
+    bench_tokenizers
 );
 criterion_main!(benches);

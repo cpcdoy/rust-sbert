@@ -3,6 +3,7 @@ use math::round::ceil;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
+//use std::time::Instant;
 
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
@@ -28,7 +29,9 @@ pub struct SafeTensor {
 }
 
 pub struct SafeSBert<T: Tokenizer> {
-    sbert: Arc<Mutex<SBert<T>>>,
+    sbert: SBert<T>,
+    tokenizer: T,
+    device: Device,
 }
 
 unsafe impl<T: Tokenizer> std::marker::Sync for SafeSBert<T> {}
@@ -36,9 +39,73 @@ unsafe impl<T: Tokenizer> std::marker::Send for SafeSBert<T> {}
 
 impl<T: Tokenizer> SafeSBert<T> {
     pub fn new<P: Into<PathBuf>>(root: P) -> Result<Self, Error> {
+        let root = root.into();
+        let root_c = root.clone();
+        let model_dir = root_c.join("0_DistilBERT");
+        let vocab_file = model_dir.join("vocab.txt");
+        let tokenizer = T::new(&vocab_file)?;
+
+        let device = Device::cuda_if_available();
+
         Ok(SafeSBert {
-            sbert: Arc::new(Mutex::new(SBert::new(root).unwrap())),
+            sbert: SBert::new(root).unwrap(),
+            tokenizer,
+            device,
         })
+    }
+
+    pub fn tokenize_batch<S: AsRef<str>>(
+        &self,
+        sorted_pad_input: &[S],
+    ) -> (SafeTensor, SafeTensor) {
+        let (tokenized_input, attention) = self.tokenizer.tokenize(sorted_pad_input);
+
+        let attention = Tensor::stack(&attention, 0).pin_memory();
+        let batch_attention = SafeTensor {
+            tensor: Arc::new(Mutex::new(attention.to4(
+                self.device,
+                attention.kind(),
+                true,
+                false,
+            ))),
+        };
+        let tokens = Tensor::stack(&tokenized_input, 0).pin_memory();
+        let batch_tensor = SafeTensor {
+            tensor: Arc::new(Mutex::new(tokens.to4(
+                self.device,
+                tokens.kind(),
+                true,
+                false,
+            ))),
+        };
+
+        (batch_attention, batch_tensor)
+    }
+
+    pub fn forward_batch(&self, batch_attention: SafeTensor, batch_tensor: SafeTensor) -> Tensor {
+        let batch_attention_c = (*batch_attention.tensor).lock().unwrap().shallow_clone();
+
+        let (embeddings, _, _) = self
+            .forward_t(
+                Some((*batch_tensor.tensor.lock().unwrap()).shallow_clone()),
+                Some((*batch_attention.tensor.lock().unwrap()).shallow_clone()),
+            )
+            .map_err(Error::Encoding)
+            .unwrap();
+
+        let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
+        let linear_tanh = self.dense.forward(&mean_pool);
+
+        linear_tanh
+    }
+
+
+    pub fn encode<S: AsRef<str>, B: Into<Option<usize>>>(
+        &self,
+        input: &[S],
+        batch_size: B,
+    ) -> Result<Vec<Vec<f32>>, Error> {
+        self.sbert.encode(input, batch_size)
     }
 
     pub fn par_encode<S: AsRef<str> + Send + Sync, B: Into<Option<usize>>>(
@@ -52,8 +119,6 @@ impl<T: Tokenizer> SafeSBert<T> {
 
         let sorted_pad_input_idx = self
             .sbert
-            .lock()
-            .unwrap()
             .pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
         let sorted_pad_input = sorted_pad_input_idx
             .iter()
@@ -61,73 +126,65 @@ impl<T: Tokenizer> SafeSBert<T> {
             .collect::<Vec<_>>();
 
         let input_len = sorted_pad_input.len();
-        let mut batch_tensors: Vec<Vec<f32>> = Vec::new();
-        batch_tensors.reserve_exact(input_len);
 
         let (tx_tok, rx_model) = channel::<(SafeTensor, SafeTensor)>();
         let (tx_model, rx_gather) = channel::<SafeTensor>();
 
         let batch_tensors = crossbeam::scope(|scope| {
             let tok = scope.spawn(move || {
-                //println!("start tokenization");
                 for batch_i in (0..input_len).step_by(batch_size) {
                     let max_range = std::cmp::min(batch_i + batch_size, input_len);
                     let range = batch_i..max_range;
 
                     println!(
-                        "Batch {}/{}, size {}",
+                        "Scheduled batch {}/{}, size {}",
                         ceil((batch_i as f64) / (batch_size as f64), 0) as usize + 1,
                         ceil((input_len as f64) / (batch_size as f64), 0) as usize,
                         max_range - batch_i
                     );
 
-                    //println!("Sending tokens...");
-                    let batch = self
-                        .sbert
-                        .lock()
-                        .unwrap()
-                        .tokenize_batch(&sorted_pad_input[range]);
-                    tx_tok.send(batch).expect("Unable to send on channel");
-                }
-            });
+                    let batch = self.tokenize_batch(&sorted_pad_input[range]);
 
-            let sbert = scope.spawn(move || {
-                let batches_rx = rx_model.iter();
-                for b in batches_rx {
-                    let (batch_attention, batch_tensor) = b;
-                    //println!("Got tokens: {:?}", batch_tensor.tensor);
-
-                    let embeddings = self
-                        .sbert
-                        .lock()
-                        .unwrap()
-                        .forward_batch(batch_attention, batch_tensor);
-
-                    //println!("Sending embeddings...");
-                    tx_model
-                        .send(embeddings)
-                        .expect("Unable to send on channel");
+                    tx_tok
+                        .send(batch)
+                        .expect("Unable to send on tokens through channel");
                 }
             });
 
             let gather = scope.spawn(move || {
-                let embeddings_rx = rx_gather.iter();
-                for emb in embeddings_rx {
-                    batch_tensors.extend(Vec::<Vec<f32>>::from(
-                        (*emb.tensor.lock().unwrap()).shallow_clone(),
-                    ));
-                }
+                let mut batch_tensors: Vec<Vec<f32>> = Vec::new();
+                batch_tensors.reserve_exact(input_len);
 
+                let embs_rx = rx_gather.iter();
+                for emb in embs_rx {
+                    let emb = (*emb.tensor.lock().unwrap()).shallow_clone();
+                    let embeddings_cpu = emb.to4(self.device, emb.kind(), true, false);
+                    batch_tensors.extend(Vec::<Vec<f32>>::from(embeddings_cpu));
+                }
                 batch_tensors
             });
 
-            tok.join();
-            sbert.join();
+            let batches_rx = rx_model.iter();
+            for b in batches_rx {
+                let (batch_attention, batch_tensor) = b;
 
+                let embeddings = self.sbert.forward_batch(batch_attention, batch_tensor);
+                let safe_embeddings = SafeTensor {
+                    tensor: Arc::new(Mutex::new(embeddings)),
+                };
+
+                tx_model
+                    .send(safe_embeddings)
+                    .expect("Unable to send embeddings through channel");
+            }
+            drop(tx_model);
+
+            tok.join();
+            println!("Gathering batches...");
             gather.join()
         });
 
-        let sorted_pad_input_idx = self.sbert.lock().unwrap().pad_sort(&sorted_pad_input_idx);
+        let sorted_pad_input_idx = self.sbert.pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
             .map(|i| batch_tensors[i].clone())
@@ -185,39 +242,26 @@ impl<T: Tokenizer> SBert<T> {
     ) -> (SafeTensor, SafeTensor) {
         let (tokenized_input, attention) = self.tokenizer.tokenize(sorted_pad_input);
 
+        let attention = Tensor::stack(&attention, 0).pin_memory();
         let batch_attention = SafeTensor {
-            tensor: Arc::new(Mutex::new(Tensor::stack(&attention, 0).to(self.device))),
+            tensor: Arc::new(Mutex::new(attention.to4(
+                self.device,
+                attention.kind(),
+                true,
+                false,
+            ))),
         };
+        let tokens = Tensor::stack(&tokenized_input, 0).pin_memory();
         let batch_tensor = SafeTensor {
-            tensor: Arc::new(Mutex::new(
-                Tensor::stack(&tokenized_input, 0).to(self.device),
-            )),
+            tensor: Arc::new(Mutex::new(tokens.to4(
+                self.device,
+                tokens.kind(),
+                true,
+                false,
+            ))),
         };
 
         (batch_attention, batch_tensor)
-    }
-
-    pub fn forward_batch(
-        &self,
-        batch_attention: SafeTensor,
-        batch_tensor: SafeTensor,
-    ) -> SafeTensor {
-        let batch_attention_c = (*batch_attention.tensor).lock().unwrap().shallow_clone();
-
-        let (embeddings, _, _) = self
-            .forward_t(
-                Some((*batch_tensor.tensor.lock().unwrap()).shallow_clone()),
-                Some((*batch_attention.tensor.lock().unwrap()).shallow_clone()),
-            )
-            .map_err(Error::Encoding)
-            .unwrap();
-
-        let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
-        let linear_tanh = self.dense.forward(&mean_pool);
-
-        SafeTensor {
-            tensor: Arc::new(Mutex::new(linear_tanh)),
-        }
     }
 
     pub fn encode<S: AsRef<str>, B: Into<Option<usize>>>(
