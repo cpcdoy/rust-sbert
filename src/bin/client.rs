@@ -1,5 +1,7 @@
 use service::embedder_client::EmbedderClient;
 
+use std::time::Instant;
+
 pub mod service {
     tonic::include_proto!("services.embedder");
 }
@@ -15,12 +17,13 @@ fn rand_string() -> String {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = EmbedderClient::connect("http://[::1]:50050").await?;
 
+    let now = Instant::now();
     for i in 1..10 {
         let mut texts = Vec::new();
         for _ in 0..1000 {
             texts.push(rand_string());
         }
-        println!("Texts: {:?}", texts);
+        //println!("Texts: {:?}", texts);
         println!("Batch {}", i);
         let request = tonic::Request::new(service::Query {
             //texts: vec!["TTThis player needs tp be reported lolz.".to_string(), "a".to_string(), "b".to_string(), "c".to_string()],
@@ -29,15 +32,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let response = client.vectorize(request).await?;
 
-        for i in response.into_inner().vecs.iter() {
+        for i in response.into_inner().vecs[..5].iter() {
             println!(
                 "Response: [{:?}, {:?}, {:?}, {:?}, {:?}]",
                 i.v[0], i.v[1], i.v[2], i.v[3], i.v[4]
             );
         }
     }
-    //println!("Len: {:?}", response.into_inner().vecs.len());
-    //}
+
+    println!("Time elapsed: {}ms", now.elapsed().as_millis());
 
     Ok(())
 }

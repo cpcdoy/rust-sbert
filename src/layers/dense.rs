@@ -34,6 +34,7 @@ impl Dense {
         println!("Loading conf {:?}", dense_dir);
 
         let device = Device::cuda_if_available();
+        //let device = Device::Cpu;
         let mut vs_dense = nn::VarStore::new(device);
 
         let init_conf = nn::LinearConfig {

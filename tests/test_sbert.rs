@@ -14,8 +14,86 @@ mod tests {
     use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{
         Tokenizer, TruncationStrategy,
     };
+    use torch_sys::dummy_cuda_dependency;
 
-    use sbert_rs::{SBertHF, SBertRT};
+    use sbert_rs::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
+
+    use rand::random;
+    fn rand_string() -> String {
+        (0..(random::<f32>() * 100.0) as usize)
+            .map(|_| (0x20u8 + (random::<f32>() * 96.0) as u8) as char)
+            .collect()
+    }
+
+    #[test]
+    fn test_safe_sbert_rust_tokenizers() {
+        unsafe {
+            dummy_cuda_dependency();
+        } //Windows Hack
+
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("distiluse-base-multilingual-cased");
+
+        println!("Loading sbert_rs ...");
+        let before = Instant::now();
+        let sbert_model = SafeSBertRT::new(home).unwrap();
+        println!("Elapsed time: {:.2?}", before.elapsed());
+
+        //let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
+        let mut texts = Vec::new();
+        texts.push(String::from("TTThis player needs tp be reported lolz."));
+        for _ in 0..999 {
+            texts.push(rand_string());
+        }
+
+        println!("Encoding {:?}...", texts[0]);
+        let before = Instant::now();
+        for _ in 0..9 {
+            &sbert_model.par_encode(&texts, 64).unwrap();
+        }
+        let output = &sbert_model.par_encode(&texts, 64).unwrap()[0][..5];
+        println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
+        println!("Vec: {:?}", output);
+
+        let v = output
+            .iter()
+            .map(|f| (f * 10000.0).round() / 10000.0)
+            .collect::<Vec<_>>();
+        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
+    }
+
+    #[test]
+    fn test_safe_sbert_hugging_face_tokenizers() {
+        unsafe {
+            dummy_cuda_dependency();
+        } //Windows Hack
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("distiluse-base-multilingual-cased");
+
+        println!("Loading sbert_rs ...");
+        let before = Instant::now();
+        let sbert_model = SafeSBertHF::new(home).unwrap();
+        println!("Elapsed time: {:.2?}", before.elapsed());
+
+        let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
+
+        println!("Encoding {:?}...", texts[0]);
+        let before = Instant::now();
+        for _ in 0..9 {
+            &sbert_model.par_encode(&texts, 64).unwrap()[0][..5];
+        }
+        let output = &sbert_model.par_encode(&texts, 64).unwrap()[0][..5];
+        println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
+        println!("Vec: {:?}", output);
+
+        let v = output
+            .iter()
+            .map(|f| (f * 10000.0).round() / 10000.0)
+            .collect::<Vec<_>>();
+        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
+    }
 
     #[test]
     fn test_sbert_hugging_face_tokenizers() {
@@ -28,22 +106,22 @@ mod tests {
         let sbert_model = SBertHF::new(home).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let texts = vec!["TTThis player needs tp be reported lolz."; 100];
+        let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
 
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
-        let output = sbert_model.encode(&texts).unwrap();
-        println!("Elapsed time: {:?}ms", before.elapsed().as_millis());
+        for _ in 0..9 {
+            &sbert_model.encode(&texts, 64).unwrap()[0][..5];
+        }
+        let output = &sbert_model.encode(&texts, 64).unwrap()[0][..5];
+        println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
+        println!("Vec: {:?}", output);
 
-        let r = output.get(0).slice(0, 0, 5, 1);
-        r.print();
-
-        let v = (r / 0.01)
-            .iter::<f64>()
-            .unwrap()
+        let v = output
+            .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [-2.2717, -0.6020, 5.5196, 1.8546, -7.5385]);
+        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
     }
 
     #[test]
@@ -57,22 +135,22 @@ mod tests {
         let sbert_model = SBertRT::new(home).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let texts = vec!["TTThis player needs tp be reported lolz."; 100];
+        let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
 
         println!("Encoding {:?}...", texts[0]);
         let before = Instant::now();
-        let output = sbert_model.encode(&texts).unwrap();
-        println!("Elapsed time: {:?}ms", before.elapsed().as_millis());
+        for _ in 0..9 {
+            &sbert_model.encode(&texts, 64).unwrap()[0][..5];
+        }
+        let output = &sbert_model.encode(&texts, 64).unwrap()[0][..5];
+        println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
+        println!("Vec: {:?}", output);
 
-        let r = output.get(0).slice(0, 0, 5, 1);
-        r.print();
-
-        let v = (r / 0.01)
-            .iter::<f64>()
-            .unwrap()
+        let v = output
+            .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [-2.2717, -0.6020, 5.5196, 1.8546, -7.5385]);
+        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
     }
 
     pub fn get_bert(path: &str) -> tokenizer::Tokenizer {

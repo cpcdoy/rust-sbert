@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
-use sbert_rs::{Error, SBertHF};
+use sbert_rs::{Error, SafeSBertRT};
 
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -16,7 +16,7 @@ pub mod service {
 }
 
 pub struct SBert {
-    model: SBertHF,
+    model: SafeSBertRT,
 }
 
 impl SBert {
@@ -29,7 +29,7 @@ impl SBert {
         home.push("distiluse-base-multilingual-cased");
 
         println!("Loading sbert_rs ...");
-        let model = SBertHF::new(home).unwrap();
+        let model = SafeSBertRT::new(home).unwrap();
 
         Ok(SBert { model })
     }
@@ -49,10 +49,9 @@ impl Embedder for SBertSync {
 
         println!("Encoding {:?}", texts.len());
 
-        let output = self.0.lock().await.model.encode(&texts, None).unwrap();
+        let output = &self.0.lock().await.model.par_encode(&texts, None).unwrap();
 
-        let r = Vec::<Vec<f32>>::from(output);
-        let vecs = r
+        let vecs = output
             .iter()
             .map(|v| service::Vector { v: v.clone() })
             .collect::<Vec<_>>();
