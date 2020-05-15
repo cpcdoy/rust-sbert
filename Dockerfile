@@ -43,17 +43,20 @@ ENV OPENSSL_LIB_DIR="/usr/lib/x86_64-linux-gnu"
 ENV OPENSSL_INCLUDE_DIR="/usr/include/openssl" 
 ENV TORCH_CUDA_VERSION=$CUDA_VER
 
-RUN cargo build --target $TARGET --release && \
-    cargo build --target $TARGET --tests
+RUN cargo build --target $TARGET --release 
+    # && \
+    #cargo build --target $TARGET --tests
 
 COPY build.rs ./
 COPY proto ./proto
-RUN cargo run --bin force-build --features build_deps --target $TARGET && \
-    cargo run --bin force-build --features build_deps --target $TARGET --release
+RUN cargo run --bin force-build --features build_deps --target $TARGET --release 
+    # && \
+    #cargo run --bin force-build --features build_deps --target $TARGET --release
 
 RUN rm src/*.rs && \
-    rm target/$TARGET/release/deps/sbert_rs* && \
-    rm target/$TARGET/debug/deps/sbert_rs*
+    rm target/$TARGET/release/deps/sbert_rs*
+    # && \
+    #rm target/$TARGET/debug/deps/sbert_rs*
 
 COPY src ./src
 RUN cargo build --bin server --target $TARGET --release
@@ -78,6 +81,7 @@ ENV TORCH_CUDA_VERSION=$CUDA_VER
 COPY --from=build /src/embedder-rs/target/$TARGET/release/server embedder-rs
 
 COPY --from=build /src/embedder-rs/libtorch/lib/ libtorch/
+COPY --from=build /usr/lib/x86_64-linux-gnu/libomp.so.5 libtorch/
 COPY --from=build /usr/lib/x86_64-linux-gnu/libgomp.so.1 libtorch/
 
 COPY ./models/distiluse-base-multilingual-cased ./models/distiluse-base-multilingual-cased

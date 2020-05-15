@@ -86,6 +86,7 @@ impl<T: Tokenizer> SafeSBert<T> {
         let batch_attention_c = (*batch_attention.tensor).lock().unwrap().shallow_clone();
 
         let (embeddings, _, _) = self
+            .sbert
             .forward_t(
                 Some((*batch_tensor.tensor.lock().unwrap()).shallow_clone()),
                 Some((*batch_attention.tensor.lock().unwrap()).shallow_clone()),
@@ -93,12 +94,11 @@ impl<T: Tokenizer> SafeSBert<T> {
             .map_err(Error::Encoding)
             .unwrap();
 
-        let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
-        let linear_tanh = self.dense.forward(&mean_pool);
+        let mean_pool = self.sbert.pooling.forward(&embeddings, &batch_attention_c);
+        let linear_tanh = self.sbert.dense.forward(&mean_pool);
 
         linear_tanh
     }
-
 
     pub fn encode<S: AsRef<str>, B: Into<Option<usize>>>(
         &self,
@@ -168,7 +168,7 @@ impl<T: Tokenizer> SafeSBert<T> {
             for b in batches_rx {
                 let (batch_attention, batch_tensor) = b;
 
-                let embeddings = self.sbert.forward_batch(batch_attention, batch_tensor);
+                let embeddings = self.forward_batch(batch_attention, batch_tensor);
                 let safe_embeddings = SafeTensor {
                     tensor: Arc::new(Mutex::new(embeddings)),
                 };
