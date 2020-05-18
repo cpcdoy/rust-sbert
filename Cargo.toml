@@ -8,6 +8,10 @@ repository = "https://github.com/cpcdoy/rust-sbert"
 keywords = ["nlp", "embedding", "sentence-embedding", "bert", "sbert", "transformers"]
 license = "Apache-2.0"
 readme = "README.md"
+include = [
+    "src/",
+    "Cargo.toml",
+]
 
 [[test]]
 name = "sbert_test"
