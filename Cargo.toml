@@ -3,14 +3,11 @@ name = "sbert-rs"
 version = "0.1.0"
 authors = ["Chady Dimachkie <chady.dimachkie@gmail.com>"]
 edition = "2018"
-
-#[[bin]] # gRPC server
-#name = "sbert_server"
-#path = "src/server.rs"
-#
-#[[bin]] # gRPC client
-#name = "sbert_client"
-#path = "src/client.rs"
+description = "Rust implementation of Sentence Bert (SBert)"
+repository = "https://github.com/cpcdoy/rust-sbert"
+keywords = ["nlp", "embedding", "sentence-embedding", "bert", "sbert", "transformers"]
+license = "Apache-2.0"
+readme = "README.md"
 
 [[test]]
 name = "sbert_test"
@@ -34,23 +31,8 @@ rust-bert = "0.7"
 serde = "1.0"
 strum = "0.18"
 strum_macros = "0.18"
-tonic = "0.2"
-tonic-build = { version = "0.2", optional = true }
 prost = "0.6"
-tokio = { version = "0.2", features = ["macros"] }
 libmath = "0.2"
 rand = "0.7"
-torch-sys = "0.1.7" # Windows Hack
+torch-sys = "0.1.7"
 crossbeam = "0.3"
-#openssl-sys = { version = "*", features = ["vendored"] }
-
-[build-dependencies]
-tonic-build = "0.2"
-
-[features]
-build_deps = ["tonic-build"]
-
-[[bin]]
-name = "force-build"
-path = "build.rs"
-required-features = ["build_deps"]

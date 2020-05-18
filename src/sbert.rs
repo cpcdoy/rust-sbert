@@ -3,7 +3,6 @@ use math::round::ceil;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
-//use std::time::Instant;
 
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
