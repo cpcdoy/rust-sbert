@@ -14,18 +14,36 @@ Might consider replacing [rust-tokenizers](https://github.com/guillaume-be/rust-
 
 ### Example
 
-The API is made to be very easy to use and enables you to create a sentence embedding very simply.
+The API is made to be very easy to use and enables you to create quality multilingual sentence embeddings in a straightforward way.
 
 Load SBert model with weights by specifying the directory of the model:
 
 ```Rust
 let mut home: PathBuf = env::current_dir().unwrap();
 home.push("path-to-model");
-
-let sbert_model = SBert::new(home.to_str().unwrap());
 ```
 
-Encode a sentence and get its sentence embedding:
+You can use different versions of the models that use different tokenizers:
+
+```Rust
+// To use Hugging Face tokenizer
+let sbert_model = SBertHF::new(home.to_str().unwrap());
+
+// To use Rust-tokenizers
+let sbert_model = SBertRT::new(home.to_str().unwrap());
+```
+
+It is also possible to use a threaded version of the model called `SafeSbert`:
+
+```Rust
+// To use Hugging Face tokenizer
+let sbert_model = SafeSBertHF::new(home.to_str().unwrap());
+
+// To use Rust-tokenizers
+let sbert_model = SafeSBertRT::new(home.to_str().unwrap());
+```
+
+Now, you can encode your sentences:
 
 ```Rust
 let texts = ["You can encode",
