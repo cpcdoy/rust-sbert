@@ -1,2 +1,7 @@
-/target
-/models
+target/
+models/
+logs/
+notebooks/
+.ipynb_checkpoints/
+
+.profile
