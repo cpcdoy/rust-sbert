@@ -5,3 +5,5 @@ notebooks/
 .ipynb_checkpoints/
 
 .profile
+
+Cargo.lock

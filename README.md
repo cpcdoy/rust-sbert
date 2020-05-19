@@ -1,8 +1,13 @@
-# Rust SBert
+# Rust SBert [![Latest Version]][crates.io] [![Latest Doc]][docs.rs]
 
-Rust port of [sentence-transformers](https://github.com/UKPLab/sentence-transformers) using [rust-bert](https://github.com/guillaume-be/rust-bert), [tch-rs](https://github.com/LaurentMazare/tch-rs) and [rust-tokenizers](https://github.com/guillaume-be/rust-tokenizers).
+[Latest Version]: https://img.shields.io/crates/v/sbert.svg
+[crates.io]: https://crates.io/crates/sbert
+[Latest Doc]: https://docs.rs/sbert/badge.svg
+[docs.rs]: https://docs.rs/sbert
 
-Might consider replacing [rust-tokenizers](https://github.com/guillaume-be/rust-tokenizers) with Hugging Face's [tokenizers](https://github.com/huggingface/tokenizers/tree/master/tokenizers).
+Rust port of [sentence-transformers](https://github.com/UKPLab/sentence-transformers) using [rust-bert](https://github.com/guillaume-be/rust-bert) and [tch-rs](https://github.com/LaurentMazare/tch-rs).
+
+Supports both [rust-tokenizers](https://github.com/guillaume-be/rust-tokenizers) and Hugging Face's [tokenizers](https://github.com/huggingface/tokenizers/tree/master/tokenizers).
 
 ## Supported models
 
