@@ -1,6 +1,6 @@
 [package]
 name = "sbert"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
 description = "Rust implementation of Sentence Bert (SBert)"
@@ -14,14 +14,33 @@ include = [
     "build.rs",
 ]
 
+[lib]
+name = "sbert"
+path = "src/lib.rs"
+crate-type = ["lib"]
+
+[[bin]]
+name = "convert-tensor"
+path = "src/bin/convert-tensor.rs"
+doc = false
+
 [[test]]
 name = "sbert_test"
 path = "tests/test_sbert.rs"
+doc = false
 
 [[bench]]
 name = "sbert_bench"
 path = "benches/bench_sbert.rs"
 harness = false
+doc = false
+
+[features]
+doc-only = ["tch/doc-only"]
+all-tests = []
+
+[package.metadata.docs.rs]
+features = [ "doc-only" ]
 
 [dev-dependencies]
 criterion = "0.3"
