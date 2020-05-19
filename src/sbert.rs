@@ -135,7 +135,7 @@ impl<T: Tokenizer> SafeSBert<T> {
                     let max_range = std::cmp::min(batch_i + batch_size, input_len);
                     let range = batch_i..max_range;
 
-                    println!(
+                    log::info!(
                         "Scheduled batch {}/{}, size {}",
                         ceil((batch_i as f64) / (batch_size as f64), 0) as usize + 1,
                         ceil((input_len as f64) / (batch_size as f64), 0) as usize,
@@ -179,7 +179,7 @@ impl<T: Tokenizer> SafeSBert<T> {
             drop(tx_model);
 
             tok.join();
-            println!("Gathering batches...");
+            log::info!("Gathering batches...");
             gather.join()
         });
 
@@ -211,7 +211,7 @@ impl<T: Tokenizer> SBert<T> {
 
         let device = Device::cuda_if_available();
         //let device = Device::Cpu;
-        println!("Using device {:?}", device);
+        log::info!("Using device {:?}", device);
 
         let mut vs = nn::VarStore::new(device);
 
@@ -287,7 +287,7 @@ impl<T: Tokenizer> SBert<T> {
             let max_range = std::cmp::min(batch_i + batch_size, input_len);
             let range = batch_i..max_range;
 
-            println!(
+            log::info!(
                 "Batch {}/{}, size {}",
                 ceil((batch_i as f64) / (batch_size as f64), 0) as usize + 1,
                 ceil((input_len as f64) / (batch_size as f64), 0) as usize,

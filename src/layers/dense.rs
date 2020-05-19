@@ -31,7 +31,7 @@ pub struct Dense {
 impl Dense {
     pub fn new<P: Into<PathBuf>>(root: P) -> Result<Dense, Error> {
         let dense_dir = root.into().join("2_Dense");
-        println!("Loading conf {:?}", dense_dir);
+        log::info!("Loading conf {:?}", dense_dir);
 
         let device = Device::cuda_if_available();
         //let device = Device::Cpu;
