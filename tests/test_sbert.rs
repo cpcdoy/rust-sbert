@@ -16,7 +16,7 @@ mod tests {
     };
     use torch_sys::dummy_cuda_dependency;
 
-    use sbert_rs::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
+    use sbert::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
 
     use rand::random;
     fn rand_string() -> String {
