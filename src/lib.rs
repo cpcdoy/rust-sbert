@@ -1,5 +1,5 @@
 pub mod layers;
-mod sbert;
+pub mod sbert;
 pub mod tokenizers;
 
 use thiserror::Error;

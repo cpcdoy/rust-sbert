@@ -35,19 +35,18 @@ mod tests {
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
 
-        println!("Loading sbert_rs ...");
+        println!("Loading sbert ...");
         let before = Instant::now();
         let sbert_model = SafeSBertRT::new(home).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        //let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));
         for _ in 0..999 {
             texts.push(rand_string());
         }
 
-        println!("Encoding {:?}...", texts[0]);
+        println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
             &sbert_model.par_encode(&texts, 64).unwrap();
@@ -72,14 +71,18 @@ mod tests {
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
 
-        println!("Loading sbert_rs ...");
+        println!("Loading sbert ...");
         let before = Instant::now();
         let sbert_model = SafeSBertHF::new(home).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
+        let mut texts = Vec::new();
+        texts.push(String::from("TTThis player needs tp be reported lolz."));
+        for _ in 0..999 {
+            texts.push(rand_string());
+        }
 
-        println!("Encoding {:?}...", texts[0]);
+        println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
             &sbert_model.par_encode(&texts, 64).unwrap()[0][..5];
@@ -101,14 +104,18 @@ mod tests {
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
 
-        println!("Loading sbert_rs ...");
+        println!("Loading sbert ...");
         let before = Instant::now();
         let sbert_model = SBertHF::new(home).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
+        let mut texts = Vec::new();
+        texts.push(String::from("TTThis player needs tp be reported lolz."));
+        for _ in 0..999 {
+            texts.push(rand_string());
+        }
 
-        println!("Encoding {:?}...", texts[0]);
+        println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
             &sbert_model.encode(&texts, 64).unwrap()[0][..5];
@@ -130,14 +137,18 @@ mod tests {
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
 
-        println!("Loading sbert_rs ...");
+        println!("Loading sbert ...");
         let before = Instant::now();
         let sbert_model = SBertRT::new(home).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
+        let mut texts = Vec::new();
+        texts.push(String::from("TTThis player needs tp be reported lolz."));
+        for _ in 0..999 {
+            texts.push(rand_string());
+        }
 
-        println!("Encoding {:?}...", texts[0]);
+        println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
             &sbert_model.encode(&texts, 64).unwrap()[0][..5];
@@ -187,10 +198,8 @@ mod tests {
         let vocab_file = model_dir.join("vocab.txt");
 
         // Set-up DistilBert model and tokenizer
-
         let tokenizer = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
 
-        //let input = ["TTThis player needs tp be reported lolz."].to_vec();
         let input = vec!["TTThis player needs tp be reported lolz."; 1000];
         let input_1 = input.clone();
         let before = Instant::now();

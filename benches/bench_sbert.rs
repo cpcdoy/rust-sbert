@@ -19,7 +19,7 @@ use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, Trunc
 //Windows Hack
 //use torch_sys::dummy_cuda_dependency;
 
-use sbert_rs::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
+use sbert::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
 
 use rand::random;
 fn rand_string() -> String {
@@ -33,7 +33,7 @@ fn bench_safe_sbert_rust_tokenizers(c: &mut Criterion) {
     home.push("models");
     home.push("distiluse-base-multilingual-cased");
 
-    println!("Loading sbert_rs ...");
+    println!("Loading sbert ...");
     let sbert_model = SafeSBertRT::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
@@ -63,7 +63,7 @@ fn bench_safe_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     home.push("models");
     home.push("distiluse-base-multilingual-cased");
 
-    println!("Loading sbert_rs ...");
+    println!("Loading sbert ...");
     let sbert_model = SafeSBertHF::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
@@ -94,7 +94,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     home.push("models");
     home.push("distiluse-base-multilingual-cased");
 
-    println!("Loading sbert_rs ...");
+    println!("Loading sbert ...");
     let sbert_model = SBertRT::new(home).unwrap();
 
     let mut texts = Vec::new();
@@ -124,7 +124,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     home.push("models");
     home.push("distiluse-base-multilingual-cased");
 
-    println!("Loading sbert_rs ...");
+    println!("Loading sbert ...");
     let sbert_model = SBertHF::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";

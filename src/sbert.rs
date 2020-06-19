@@ -59,7 +59,7 @@ impl<T: Tokenizer> SafeSBert<T> {
     ) -> (SafeTensor, SafeTensor) {
         let (tokenized_input, attention) = self.tokenizer.tokenize(sorted_pad_input);
 
-        let attention = Tensor::stack(&attention, 0).pin_memory();
+        let attention = Tensor::stack(&attention, 0);
         let batch_attention = SafeTensor {
             tensor: Arc::new(Mutex::new(attention.to4(
                 self.device,
@@ -68,7 +68,7 @@ impl<T: Tokenizer> SafeSBert<T> {
                 false,
             ))),
         };
-        let tokens = Tensor::stack(&tokenized_input, 0).pin_memory();
+        let tokens = Tensor::stack(&tokenized_input, 0);
         let batch_tensor = SafeTensor {
             tensor: Arc::new(Mutex::new(tokens.to4(
                 self.device,
@@ -210,7 +210,6 @@ impl<T: Tokenizer> SBert<T> {
         let dense = Dense::new(root.clone())?;
 
         let device = Device::cuda_if_available();
-        //let device = Device::Cpu;
         log::info!("Using device {:?}", device);
 
         let mut vs = nn::VarStore::new(device);
