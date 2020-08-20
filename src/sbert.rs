@@ -284,7 +284,7 @@ impl<T: Tokenizer> SBert<T> {
             .collect::<Vec<_>>();
 
         let input_len = sorted_pad_input.len();
-        let mut batch_tensors: Vec<Embeddings> = Vec::with_capacity(input_len);
+        let mut batch_tensors = Vec::<Embeddings>::with_capacity(input_len);
 
         for batch_i in (0..input_len).step_by(batch_size) {
             let max_range = std::cmp::min(batch_i + batch_size, input_len);
@@ -339,7 +339,7 @@ impl<T: Tokenizer> SBert<T> {
             .collect::<Vec<_>>();
 
         let input_len = sorted_pad_input.len();
-        let mut batch_tensors: Vec<Embeddings> = Vec::with_capacity(input_len);
+        let mut batch_tensors = Vec::<Embeddings>::with_capacity(input_len);
 
         // type Attentions = Vec<Layers<Heads<Attention2D>>>>
         let mut batch_attention_tensors: Attentions = Vec::with_capacity(self.nb_layers);
@@ -373,7 +373,7 @@ impl<T: Tokenizer> SBert<T> {
 
             let attention = attention.unwrap();
             for i in 0..curr_batch_size {
-                let mut layers_att: att::Layers = att::Layers::with_capacity(self.nb_layers);
+                let mut layers_att = att::Layers::with_capacity(self.nb_layers);
                 for layer in attention.iter() {
                     let mut heads_att = att::Heads::with_capacity(self.nb_heads);
                     for head in 0..self.nb_heads as usize {
