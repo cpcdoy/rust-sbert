@@ -1,12 +1,8 @@
-#[macro_use]
-extern crate criterion;
-
-use criterion::black_box;
-use criterion::Criterion;
-
 use std::env;
 use std::path::PathBuf;
 
+use criterion::black_box;
+use criterion::Criterion;
 use tokenizers::models::wordpiece::WordPiece;
 use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
@@ -231,10 +227,10 @@ fn sample_size_10() -> Criterion {
     Criterion::default().sample_size(10)
 }
 
-criterion_group!(
+criterion::criterion_group!(
     name = benches;
     config = sample_size_10();
     targets = bench_safe_sbert_rust_tokenizers, bench_safe_sbert_hugging_face_tokenizers, bench_sbert_rust_tokenizers, bench_sbert_hugging_face_tokenizers,
     bench_tokenizers
 );
-criterion_main!(benches);
+criterion::criterion_main!(benches);

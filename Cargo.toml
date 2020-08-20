@@ -46,7 +46,6 @@ features = [ "doc-only" ]
 criterion = "0.3"
 
 [dependencies]
-failure = "0.1"
 rust_tokenizers = "3.1"
 tokenizers = "0.10.1"
 tch = "0.2"
