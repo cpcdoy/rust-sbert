@@ -179,7 +179,7 @@ impl<T: Tokenizer> SafeSBert<T> {
             }
             drop(tx_model);
 
-            tok.join().expect("Coudln't join tokenizing thread");
+            tok.join().expect("Couldn't join tokenizing thread");
             log::info!("Gathering batches...");
             gather.join()
         })??;
