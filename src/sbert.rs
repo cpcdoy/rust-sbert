@@ -1,21 +1,22 @@
+use crossbeam;
+
+use math::round::ceil;
+use std::convert::TryInto;
+
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 
-use crossbeam;
-use math::round::ceil;
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
 use rust_bert::Config;
 use tch::{nn, Device, Tensor};
 
 use crate::layers::{Dense, Pooling};
 use crate::tokenizers::Tokenizer;
-use crate::{att, Attentions, Embeddings, Error};
+use crate::Error;
 
 pub struct SBert<T: Tokenizer> {
     lm_model: DistilBertModel,
-    nb_layers: usize,
-    nb_heads: usize,
     pooling: Pooling,
     dense: Dense,
     pub tokenizer: T,
@@ -105,7 +106,7 @@ impl<T: Tokenizer> SafeSBert<T> {
         &self,
         input: &[S],
         batch_size: B,
-    ) -> Result<Vec<Embeddings>, Error> {
+    ) -> Result<Vec<Vec<f32>>, Error> {
         self.sbert.encode(input, batch_size)
     }
 
@@ -113,13 +114,14 @@ impl<T: Tokenizer> SafeSBert<T> {
         &self,
         input: &[S],
         batch_size: B,
-    ) -> Result<Vec<Embeddings>, Error> {
+    ) -> Result<Vec<Vec<f32>>, Error> {
         let batch_size = batch_size.into().unwrap_or_else(|| 64);
 
         let _guard = tch::no_grad_guard();
 
-        let sorted_pad_input_idx =
-            SBert::<T>::pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
+        let sorted_pad_input_idx = self
+            .sbert
+            .pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
         let sorted_pad_input = sorted_pad_input_idx
             .iter()
             .map(|i| &input[*i])
@@ -152,14 +154,14 @@ impl<T: Tokenizer> SafeSBert<T> {
             });
 
             let gather = scope.spawn(move |_| {
-                let mut batch_tensors: Vec<Embeddings> = Vec::new();
+                let mut batch_tensors: Vec<Vec<f32>> = Vec::new();
                 batch_tensors.reserve_exact(input_len);
 
                 let embs_rx = rx_gather.iter();
                 for emb in embs_rx {
                     let emb = (*emb.tensor.lock().unwrap()).shallow_clone();
                     let embeddings_cpu = emb.to4(self.device, emb.kind(), true, false);
-                    batch_tensors.extend(Vec::<Embeddings>::from(embeddings_cpu));
+                    batch_tensors.extend(Vec::<Vec<f32>>::from(embeddings_cpu));
                 }
                 batch_tensors
             });
@@ -179,15 +181,15 @@ impl<T: Tokenizer> SafeSBert<T> {
             }
             drop(tx_model);
 
-            tok.join().expect("Couldn't join tokenizing thread");
+            tok.join();
             log::info!("Gathering batches...");
             gather.join()
-        })??;
+        });
 
-        let sorted_pad_input_idx = SBert::<T>::pad_sort(&sorted_pad_input_idx);
+        let sorted_pad_input_idx = self.sbert.pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
-            .map(|i| batch_tensors[i].clone())
+            .map(|i| batch_tensors.as_ref().unwrap().as_ref().unwrap()[i].clone())
             .collect::<Vec<_>>();
 
         Ok(batch_tensors)
@@ -206,8 +208,6 @@ impl<T: Tokenizer> SBert<T> {
         // Set-up DistilBert model and tokenizer
 
         let config = DistilBertConfig::from_file(&config_file);
-        let nb_layers = config.n_layers as usize;
-        let nb_heads = config.n_heads as usize;
 
         let pooling = Pooling::new(root.clone());
         let dense = Dense::new(root.clone())?;
@@ -224,8 +224,6 @@ impl<T: Tokenizer> SBert<T> {
 
         Ok(SBert {
             lm_model,
-            nb_layers,
-            nb_heads,
             pooling,
             dense,
             tokenizer,
@@ -233,7 +231,7 @@ impl<T: Tokenizer> SBert<T> {
         })
     }
 
-    pub fn pad_sort<O: Ord>(arr: &[O]) -> Vec<usize> {
+    pub fn pad_sort<O: Ord>(&self, arr: &[O]) -> Vec<usize> {
         let mut idx = (0..arr.len()).collect::<Vec<_>>();
         idx.sort_unstable_by(|&i, &j| arr[i].cmp(&arr[j]));
         idx
@@ -271,20 +269,21 @@ impl<T: Tokenizer> SBert<T> {
         &self,
         input: &[S],
         batch_size: B,
-    ) -> Result<Vec<Embeddings>, Error> {
+    ) -> Result<Vec<Vec<f32>>, Error> {
         let batch_size = batch_size.into().unwrap_or_else(|| 64);
 
         let _guard = tch::no_grad_guard();
 
         let sorted_pad_input_idx =
-            Self::pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
+            self.pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
         let sorted_pad_input = sorted_pad_input_idx
             .iter()
             .map(|i| &input[*i])
             .collect::<Vec<_>>();
 
         let input_len = sorted_pad_input.len();
-        let mut batch_tensors: Vec<Embeddings> = Vec::with_capacity(input_len);
+        let mut batch_tensors: Vec<Vec<f32>> = Vec::new();
+        batch_tensors.reserve_exact(input_len);
 
         for batch_i in (0..input_len).step_by(batch_size) {
             let max_range = std::cmp::min(batch_i + batch_size, input_len);
@@ -310,10 +309,10 @@ impl<T: Tokenizer> SBert<T> {
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);
 
-            batch_tensors.extend(Vec::<Embeddings>::from(linear_tanh));
+            batch_tensors.extend(Vec::<Vec<f32>>::from(linear_tanh));
         }
 
-        let sorted_pad_input_idx = Self::pad_sort(&sorted_pad_input_idx);
+        let sorted_pad_input_idx = self.pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
             .map(|i| batch_tensors[i].clone())
@@ -326,28 +325,30 @@ impl<T: Tokenizer> SBert<T> {
         &self,
         input: &[S],
         batch_size: B,
-    ) -> Result<(Vec<Embeddings>, Attentions), Error> {
+    ) -> Result<(Vec<Vec<f32>>, Vec<Vec<Vec<Vec<Vec<f32>>>>>), Error> {
         let batch_size = batch_size.into().unwrap_or_else(|| 64);
 
         let _guard = tch::no_grad_guard();
 
         let sorted_pad_input_idx =
-            Self::pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
+            self.pad_sort(&input.iter().map(|e| e.as_ref().len()).collect::<Vec<_>>());
         let sorted_pad_input = sorted_pad_input_idx
             .iter()
             .map(|i| &input[*i])
             .collect::<Vec<_>>();
 
         let input_len = sorted_pad_input.len();
-        let mut batch_tensors: Vec<Embeddings> = Vec::with_capacity(input_len);
+        let mut batch_tensors: Vec<Vec<f32>> = Vec::new();
+        batch_tensors.reserve_exact(input_len);
 
-        // type Attentions = Vec<Layers<Heads<Attention2D>>>>
-        let mut batch_attention_tensors: Attentions = Vec::with_capacity(self.nb_layers);
+        // Sentence<Layers<Heads<Attention_2dim<>>>>
+        let mut batch_attention_tensors: Vec<Vec<Vec<Vec<Vec<f32>>>>> = Vec::new();
+        batch_attention_tensors.reserve_exact(6);
 
         for batch_i in (0..input_len).step_by(batch_size) {
             let max_range = std::cmp::min(batch_i + batch_size, input_len);
             let range = batch_i..max_range;
-            let curr_batch_size = (max_range - batch_i) as i64;
+            let curr_batch_size: i64 = (max_range - batch_i).try_into().unwrap();
 
             log::info!(
                 "Batch {}/{}, size {}",
@@ -369,30 +370,31 @@ impl<T: Tokenizer> SBert<T> {
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);
 
-            batch_tensors.extend(Vec::<Embeddings>::from(linear_tanh));
+            batch_tensors.extend(Vec::<Vec<f32>>::from(linear_tanh));
 
             let attention = attention.unwrap();
             for i in 0..curr_batch_size {
-                let mut layers_att: att::Layers = att::Layers::with_capacity(self.nb_layers);
+                let mut batch_attention_tensors_tmp: Vec<Vec<Vec<Vec<f32>>>> = Vec::new();
                 for layer in attention.iter() {
-                    let mut heads_att = att::Heads::with_capacity(self.nb_heads);
-                    for head in 0..self.nb_heads as usize {
+                    let mut layer_att = Vec::<Vec<Vec<f32>>>::new();
+                    layer_att.reserve_exact(12);
+                    for head in 0..12 as usize {
                         let att_slice = layer
                             .slice(0, i, i + 1, 1)
                             .slice(1, head as i64, head as i64 + 1, 1)
                             .squeeze();
 
-                        let head_att = att::Attention2D::from(att_slice);
-                        heads_att.push(head_att);
+                        let head_att = Vec::<Vec<f32>>::from(att_slice);
+                        layer_att.push(head_att);
                     }
-                    layers_att.push(heads_att);
+                    batch_attention_tensors_tmp.push(layer_att);
                 }
 
-                batch_attention_tensors.push(layers_att);
+                batch_attention_tensors.push(batch_attention_tensors_tmp);
             }
         }
 
-        let sorted_pad_input_idx = Self::pad_sort(&sorted_pad_input_idx);
+        let sorted_pad_input_idx = self.pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .iter()
             .map(|i| batch_tensors[*i].clone())
