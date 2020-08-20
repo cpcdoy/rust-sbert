@@ -16,13 +16,49 @@ mod tests {
     };
     use torch_sys::dummy_cuda_dependency;
 
-    use sbert::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
+    use sbert::Tokenizer as TraitTokenizer;
+    use sbert::{HFTokenizer, SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
 
     use rand::random;
     fn rand_string() -> String {
         (0..(random::<f32>() * 100.0) as usize)
             .map(|_| (0x20u8 + (random::<f32>() * 96.0) as u8) as char)
             .collect()
+    }
+
+    #[test]
+    fn test_hf_pre_tokenizer() {
+        unsafe {
+            dummy_cuda_dependency();
+        } //Windows Hack
+
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("distiluse-base-multilingual-cased");
+        let model_path = home.clone();
+
+        home.push("0_DistilBERT");
+
+        let vocab_file = home.join("vocab.txt");
+        let tok = HFTokenizer::new(&vocab_file).unwrap();
+
+        let mut texts = Vec::new();
+        texts.push(String::from("TTThis player needs tp be reported lolz."));
+
+        let tokens = tok.pre_tokenize(&texts);
+        println!("Tokens {:?}", tokens[0]);
+
+        let sbert_model = SBertHF::new(model_path).unwrap();
+        let output = sbert_model.encode_with_attention(&texts, 64).unwrap();
+
+        println!("att {:?}", output.1[0][0]);
+        assert_eq!(
+            tokens[0],
+            [
+                "[CLS]", "TT", "##T", "##his", "player", "needs", "t", "##p", "be", "reported",
+                "lo", "##lz", ".", "[SEP]"
+            ]
+        );
     }
 
     #[test]
@@ -42,7 +78,7 @@ mod tests {
 
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));
-        for _ in 0..999 {
+        for _ in 0..9 {
             texts.push(rand_string());
         }
 
@@ -78,7 +114,7 @@ mod tests {
 
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));
-        for _ in 0..999 {
+        for _ in 0..9 {
             texts.push(rand_string());
         }
 
@@ -111,7 +147,7 @@ mod tests {
 
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));
-        for _ in 0..999 {
+        for _ in 0..9 {
             texts.push(rand_string());
         }
 
@@ -144,7 +180,7 @@ mod tests {
 
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));
-        for _ in 0..999 {
+        for _ in 0..9 {
             texts.push(rand_string());
         }
 
@@ -162,6 +198,81 @@ mod tests {
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
         assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
+    }
+
+    #[test]
+    pub fn test_sbert_encode_attention() {
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("distiluse-base-multilingual-cased");
+
+        println!("Loading sbert ...");
+        let before = Instant::now();
+        let sbert_model = SBertHF::new(home).unwrap();
+        println!("Elapsed time: {:.2?}", before.elapsed());
+
+        let mut texts = Vec::new();
+        texts.push(String::from("test"));
+        texts.push(String::from("testtest"));
+
+        println!("Encoding {} sentence with attention...", texts.len());
+        let output = &sbert_model.encode_with_attention(&texts, 64).unwrap();
+        let emb = &output.0[0][..5];
+        let attention = &output.1;
+
+        println!("texts: {:?}", texts.clone());
+        let tokens = sbert_model.tokenizer.pre_tokenize(&texts);
+
+        let len = tokens[0].len();
+        let head_nb = attention[0][0].len();
+        let mut tok_highlights = vec![0.0; len];
+
+        for head_atts in attention[0][5].iter() {
+            let mut head_vec = vec![0.0; len];
+            for atts in head_atts.iter() {
+                println!("tok att: {:?}", atts);
+                for (i, tok_att) in atts.iter().enumerate() {
+                    head_vec[i] += tok_att;
+                }
+            }
+
+            let head_vec: Vec<f32> = head_vec.into_iter().map(|e| e / (len as f32)).collect();
+
+            println!("head vec: {:?}", head_vec.clone());
+            for (i, att) in head_vec.iter().enumerate() {
+                tok_highlights[i] += att;
+            }
+
+            println!("tok high: {:?}", tok_highlights);
+        }
+
+        let tok_highlights: Vec<f32> = tok_highlights
+            .into_iter()
+            .map(|e| e / (head_nb as f32))
+            .collect();
+
+        let mut tokens_and_atts: Vec<(f32, String)> = Vec::new();
+
+        for (att, tok) in tok_highlights.iter().zip(tokens[0].iter()) {
+            tokens_and_atts.push((att.clone(), tok.clone()));
+        }
+        println!("########### Tokens and att: {:?}", tokens_and_atts);
+        println!(
+            "Important tokens: {:?}",
+            tokens_and_atts
+                .iter()
+                .filter(|x| x.0 > 0.009)
+                .map(|x| x.1.clone())
+                .collect::<Vec<_>>()
+        );
+        println!("Tokens: {:?}", tokens);
+        println!("Att toks: {:?}", tok_highlights);
+
+        let v = emb
+            .iter()
+            .map(|f| (f * 10000.0).round() / 10000.0)
+            .collect::<Vec<_>>();
+        assert_eq!(v, [0.033, 0.0469, -0.0579, 0.0181, -0.0693]);
     }
 
     pub fn get_bert(path: &str) -> tokenizer::Tokenizer {

@@ -67,6 +67,20 @@ impl Tokenizer for HFTokenizer {
         Ok(Self { tokenizer })
     }
 
+    fn pre_tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Vec<String>> {
+        let input = input.iter().map(|v| v.as_ref()).collect::<Vec<_>>();
+        let encode_input = input
+            .into_iter()
+            .map(|s| EncodeInput::Single(s.into()))
+            .collect();
+        let encoding = self.tokenizer.encode_batch(encode_input, true).unwrap();
+
+        encoding
+            .into_iter()
+            .map(|input| input.get_tokens().into_iter().map(|e| e.clone()).collect())
+            .collect()
+    }
+
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         let input = input.iter().map(|v| v.as_ref()).collect::<Vec<_>>();
         let encode_input = input

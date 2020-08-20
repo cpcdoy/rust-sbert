@@ -1,6 +1,6 @@
 [package]
 name = "sbert"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
 description = "Rust implementation of Sentence Bert (SBert)"
@@ -46,19 +46,18 @@ features = [ "doc-only" ]
 criterion = "0.3"
 
 [dependencies]
-failure = "0.1"
-rust_tokenizers = "2.0"
+rust_tokenizers = "3.1"
 tokenizers = "0.10.1"
-tch = "0.1.7"
+tch = "0.2"
 thiserror = "1.0"
 rust-bert = "0.7"
 serde = "1.0"
-strum = "0.18"
-strum_macros = "0.18"
+strum = "0.19"
+strum_macros = "0.19"
 prost = "0.6"
 libmath = "0.2"
 rand = "0.7"
-torch-sys = "0.1.7"
-crossbeam = "0.3"
+torch-sys = "0.2"
+crossbeam = "0.7"
 lazy_static = "1.4"
 log = "0.4"

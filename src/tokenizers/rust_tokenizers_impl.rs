@@ -21,6 +21,10 @@ impl Tokenizer for RustTokenizers {
         Ok(Self { tokenizer })
     }
 
+    fn pre_tokenize<S: AsRef<str>>(&self, _input: &[S]) -> Vec<Vec<String>> {
+        Vec::new()
+    }
+
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::Tokenizer;
 
