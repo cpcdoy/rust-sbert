@@ -11,14 +11,6 @@ pub enum Error {
     VarStore(TchError),
     #[error("Encoding error: {0}")]
     Encoding(&'static str),
-    #[error("Multithreading issue")]
-    Multithreading(Box<dyn std::any::Any + 'static + Send>),
-}
-
-impl From<Box<dyn std::any::Any + 'static + Send>> for Error {
-    fn from(source: Box<dyn std::any::Any + 'static + Send>) -> Self {
-        Self::Multithreading(source)
-    }
 }
 
 pub use crate::sbert::SBert;

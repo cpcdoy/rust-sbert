@@ -182,7 +182,7 @@ impl<T: Tokenizer> SafeSBert<T> {
             tok.join().expect("Couldn't join tokenizing thread");
             log::info!("Gathering batches...");
             gather.join()
-        })??;
+        }).expect("Couldn't join gather thread").expect("Couldn't batch tensors");
 
         let sorted_pad_input_idx = SBert::<T>::pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
