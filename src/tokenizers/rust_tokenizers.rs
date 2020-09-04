@@ -16,7 +16,7 @@ impl Tokenizer for RustTokenizers {
     where
         Self: Sized,
     {
-        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false);
+        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false, false)?;
 
         Ok(Self { tokenizer })
     }

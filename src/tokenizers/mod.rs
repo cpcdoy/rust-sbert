@@ -1,7 +1,17 @@
-pub mod rust_tokenizers_impl;
-pub mod hf_tokenizers_impl;
-mod tokenizer;
+mod hf_tokenizers;
+mod rust_tokenizers;
 
-pub use rust_tokenizers_impl::RustTokenizers;
-pub use hf_tokenizers_impl::HFTokenizer;
-pub use tokenizer::Tokenizer;
+use std::path::PathBuf;
+
+use tch::Tensor;
+
+pub trait Tokenizer {
+    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, crate::Error>
+    where
+        Self: Sized;
+    fn pre_tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Vec<String>>;
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>);
+}
+
+pub use self::hf_tokenizers::HFTokenizer;
+pub use self::rust_tokenizers::RustTokenizers;

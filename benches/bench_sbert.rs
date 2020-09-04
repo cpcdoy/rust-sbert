@@ -3,86 +3,24 @@ use std::path::PathBuf;
 
 use criterion::black_box;
 use criterion::Criterion;
+use rand::{rngs::StdRng, Rng, SeedableRng};
+use rust_tokenizers::bert_tokenizer::BertTokenizer;
+use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
 use tokenizers::models::wordpiece::WordPiece;
 use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
 use tokenizers::processors::bert::BertProcessing;
 use tokenizers::tokenizer;
 
-use rust_tokenizers::bert_tokenizer::BertTokenizer;
-use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
+// Windows Hack
+// use torch_sys::dummy_cuda_dependency;
 
-//Windows Hack
-//use torch_sys::dummy_cuda_dependency;
+use sbert::{SBertHF, SBertRT};
 
-use sbert::{SBertHF, SBertRT, SafeSBertHF, SafeSBertRT};
-
-use rand::random;
-fn rand_string() -> String {
-    (0..(random::<f32>() * 100.0) as usize)
-        .map(|_| (0x20u8 + (random::<f32>() * 96.0) as u8) as char)
+fn rand_string(r: &mut impl Rng) -> String {
+    (0..(r.gen::<f32>() * 100.0) as usize)
+        .map(|_| (0x20u8 + (r.gen::<f32>() * 96.0) as u8) as char)
         .collect()
-}
-
-fn bench_safe_sbert_rust_tokenizers(c: &mut Criterion) {
-    let mut home: PathBuf = env::current_dir().unwrap();
-    home.push("models");
-    home.push("distiluse-base-multilingual-cased");
-
-    println!("Loading sbert ...");
-    let sbert_model = SafeSBertRT::new(home).unwrap();
-
-    let text = "TTThis player needs tp be reported lolz.";
-    let mut texts = Vec::new();
-    for _ in 0..1000 {
-        texts.push(rand_string());
-    }
-
-    c.bench_function("Encode batch, safe sbert rust tokenizer, total 1", |b| {
-        b.iter(|| sbert_model.par_encode(black_box(&[text]), None).unwrap())
-    });
-
-    for batch_size in (0..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
-        let batch_size = *batch_size as usize;
-        let s = format!(
-            "Encode batch_size {}, safe sbert, rust tokenizer, total 1000",
-            batch_size
-        );
-        c.bench_function(&s, |b| {
-            b.iter(|| black_box(sbert_model.par_encode(&texts, batch_size)).unwrap())
-        });
-    }
-}
-
-fn bench_safe_sbert_hugging_face_tokenizers(c: &mut Criterion) {
-    let mut home: PathBuf = env::current_dir().unwrap();
-    home.push("models");
-    home.push("distiluse-base-multilingual-cased");
-
-    println!("Loading sbert ...");
-    let sbert_model = SafeSBertHF::new(home).unwrap();
-
-    let text = "TTThis player needs tp be reported lolz.";
-    let mut texts = Vec::new();
-    for _ in 0..1000 {
-        texts.push(rand_string());
-    }
-
-    c.bench_function(
-        "Encode batch, safe sbert, hugging face tokenizer, total 1",
-        |b| b.iter(|| sbert_model.par_encode(black_box(&[text]), None).unwrap()),
-    );
-
-    for batch_size in (0..10).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
-        let batch_size = *batch_size as usize;
-        let s = format!(
-            "Encode batch_size {}, safe sbert, hugging face tokenizer, total 1000",
-            batch_size
-        );
-        c.bench_function(&s, |b| {
-            b.iter(|| black_box(sbert_model.par_encode(&texts, batch_size)).unwrap())
-        });
-    }
 }
 
 fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
@@ -93,20 +31,17 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     println!("Loading sbert ...");
     let sbert_model = SBertRT::new(home).unwrap();
 
-    let mut texts = Vec::new();
-    for _ in 0..10 {
-        texts.push(rand_string());
-    }
-
     let text = "TTThis player needs tp be reported lolz.";
-
-    c.bench_function("Encode batch rust_tokenizers 1", |b| {
+    c.bench_function("Encode batch, safe sbert rust tokenizer, total 1", |b| {
         b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
     });
-    for batch_size in (0..5).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+
+    let mut r = StdRng::seed_from_u64(42);
+    let texts = (0..1000).map(|_| rand_string(&mut r)).collect::<Vec<_>>();
+    for batch_size in (0..7).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!(
-            "Encode batch_size {}, rust_tokenizers, total 1000",
+            "Encode batch_size {}, safe sbert, rust tokenizer, total 1000",
             batch_size
         );
         c.bench_function(&s, |b| {
@@ -124,19 +59,17 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     let sbert_model = SBertHF::new(home).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
-    let mut texts = Vec::new();
-    for _ in 0..10 {
-        texts.push(rand_string());
-    }
+    c.bench_function(
+        "Encode batch, safe sbert, hugging face tokenizer, total 1",
+        |b| b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap()),
+    );
 
-    c.bench_function("Encode batch hugging face tokenizer 1", |b| {
-        b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
-    });
-
-    for batch_size in (0..5).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
+    let mut r = StdRng::seed_from_u64(42);
+    let texts = (0..1000).map(|_| rand_string(&mut r)).collect::<Vec<_>>();
+    for batch_size in (0..7).map(|p| 2.0f32.powi(p)).collect::<Vec<f32>>().iter() {
         let batch_size = *batch_size as usize;
         let s = format!(
-            "Encode batch_size {}, hugging face tokenizer, total 1000",
+            "Encode batch_size {}, safe sbert, hugging face tokenizer, total 1000",
             batch_size
         );
         c.bench_function(&s, |b| {
@@ -168,25 +101,6 @@ pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
     tokenizer
 }
 
-fn tokenize_rust_tokenizers(tokenizer: &BertTokenizer, input: Vec<&str>) -> Vec<Vec<i64>> {
-    let tokenized_input = tokenizer.encode_list(input, 128, &TruncationStrategy::LongestFirst, 0);
-
-    let max_len = tokenized_input
-        .iter()
-        .map(|input| input.token_ids.len())
-        .max()
-        .unwrap_or_else(|| 0);
-
-    tokenized_input
-        .into_iter()
-        .map(|input| input.token_ids)
-        .map(|mut input| {
-            input.extend(vec![0; max_len - input.len()]);
-            input
-        })
-        .collect::<Vec<_>>()
-}
-
 fn bench_tokenizers(c: &mut Criterion) {
     let mut root: PathBuf = env::current_dir().unwrap();
     root.push("models");
@@ -198,7 +112,8 @@ fn bench_tokenizers(c: &mut Criterion) {
 
     let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
 
-    let tokenizer_rust_tokenizers = BertTokenizer::from_file(&vocab_file.to_string_lossy(), false);
+    let tokenizer_rust_tokenizers =
+        BertTokenizer::from_file(&vocab_file.to_string_lossy(), false, false).unwrap();
     let tokenizer_hugging_face = get_bert(vocab_file.to_str().unwrap());
 
     let encode_input = texts
@@ -207,7 +122,7 @@ fn bench_tokenizers(c: &mut Criterion) {
         .map(|s| tokenizer::EncodeInput::Single(s.into()))
         .collect::<Vec<_>>();
 
-    let closure = || {
+    let hf_bench = || {
         tokenizer_hugging_face
             .encode_batch(encode_input.clone(), true)
             .unwrap()
@@ -216,10 +131,33 @@ fn bench_tokenizers(c: &mut Criterion) {
             .collect::<Vec<_>>()
     };
 
-    let closure_2 = || tokenize_rust_tokenizers(&tokenizer_rust_tokenizers, texts.clone());
-    c.bench_function("Tokenizer: Hugging Face, batch 1000", |b| b.iter(closure));
+    let rt_bench = || {
+        let tokenized_input = tokenizer_rust_tokenizers.encode_list(
+            texts.clone(),
+            128,
+            &TruncationStrategy::LongestFirst,
+            0,
+        );
+
+        let max_len = tokenized_input
+            .iter()
+            .map(|input| input.token_ids.len())
+            .max()
+            .unwrap_or_else(|| 0);
+
+        tokenized_input
+            .into_iter()
+            .map(|input| input.token_ids)
+            .map(|mut input| {
+                input.extend(vec![0; max_len - input.len()]);
+                input
+            })
+            .collect::<Vec<_>>()
+    };
+
+    c.bench_function("Tokenizer: Hugging Face, batch 1000", |b| b.iter(hf_bench));
     c.bench_function("Tokenizer: Rust tokenizers, batch 1000", |b| {
-        b.iter(closure_2)
+        b.iter(rt_bench)
     });
 }
 
@@ -230,7 +168,6 @@ fn sample_size_10() -> Criterion {
 criterion::criterion_group!(
     name = benches;
     config = sample_size_10();
-    targets = bench_safe_sbert_rust_tokenizers, bench_safe_sbert_hugging_face_tokenizers, bench_sbert_rust_tokenizers, bench_sbert_hugging_face_tokenizers,
-    bench_tokenizers
+    targets = bench_sbert_rust_tokenizers, bench_sbert_hugging_face_tokenizers, bench_tokenizers
 );
 criterion::criterion_main!(benches);

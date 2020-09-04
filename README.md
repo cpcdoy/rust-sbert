@@ -5,9 +5,9 @@
 [Latest Doc]: https://docs.rs/sbert/badge.svg
 [docs.rs]: https://docs.rs/sbert
 
-Rust port of [sentence-transformers](https://github.com/UKPLab/sentence-transformers) using [rust-bert](https://github.com/guillaume-be/rust-bert) and [tch-rs](https://github.com/LaurentMazare/tch-rs).
+Rust port of [sentence-transformers][] using [rust-bert][] and [tch-rs][].
 
-Supports both [rust-tokenizers](https://github.com/guillaume-be/rust-tokenizers) and Hugging Face's [tokenizers](https://github.com/huggingface/tokenizers/tree/master/tokenizers).
+Supports both [rust-tokenizers][] and Hugging Face's [tokenizers][].
 
 ## Supported models
 
@@ -38,16 +38,6 @@ let sbert_model = SBertHF::new(home.to_str().unwrap());
 let sbert_model = SBertRT::new(home.to_str().unwrap());
 ```
 
-It is also possible to use a threaded version of the model called `SafeSbert`:
-
-```Rust
-// To use Hugging Face tokenizer
-let sbert_model = SafeSBertHF::new(home.to_str().unwrap());
-
-// To use Rust-tokenizers
-let sbert_model = SafeSBertRT::new(home.to_str().unwrap());
-```
-
 Now, you can encode your sentences:
 
 ```Rust
@@ -63,13 +53,43 @@ let output = sbert_model.encode(texts.to_vec(), batch_size).unwrap();
 
 The parameter `batch_size` can be left to `None` to let the model use its default value.
 
-Then you can use the `output` sentence embedding in any application you want. 
+Then you can use the `output` sentence embedding in any application you want.
 
 ### Convert models from Python to Rust
 
-To be able to use the models provided [here](https://public.ukp.informatik.tu-darmstadt.de/reimers/sentence-transformers/v0.2/) by UKPLabs, you need to run this script to convert the model in a suitable format:
+Firstly, get a model provided by UKPLabs (all models are [here][models]):
 
 ```Bash
-cd model-path/
-python3 utils/prepare_distilbert.py
+mkdir -p models/distiluse-base-multilingual-cased
+
+wget -P models https://public.ukp.informatik.tu-darmstadt.de/reimers/sentence-transformers/v0.2/distiluse-base-multilingual-cased.zip
+
+unzip models/distiluse-base-multilingual-cased.zip -d models/distiluse-base-multilingual-cased
 ```
+
+Then, you need to convert the model in a suitable format (requires [pytorch][]):
+
+``` Bash
+python utils/prepare_distilbert.py models/distiluse-base-multilingual-cased
+```
+
+A dockerized environment is also available for running the conversion script:
+
+```Bash
+docker build -t tch-converter -f utils/Dockerfile .
+
+docker run \
+  -v $(pwd)/models/distiluse-base-multilingual-cased:/model \
+  tch-converter:latest \
+  python prepare_distilbert.py /model
+```
+
+Finally, set `"output_attentions": true` in `distiluse-base-multilingual-cased/0_distilbert/config.json`.
+
+[sentence-transformers]: https://github.com/UKPLab/sentence-transformers
+[rust-bert]: https://github.com/guillaume-be/rust-bert
+[tch-rs]: https://github.com/LaurentMazare/tch-rs
+[rust-tokenizers]: https://github.com/guillaume-be/rust-tokenizers
+[tokenizers]: https://github.com/huggingface/tokenizers/tree/master/tokenizers
+[models]: https://public.ukp.informatik.tu-darmstadt.de/reimers/sentence-transformers/v0.2/
+[pytorch]: https://pytorch.org/get-started/locally

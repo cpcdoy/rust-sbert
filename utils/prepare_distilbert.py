@@ -1,3 +1,4 @@
+import sys
 import os
 import numpy as np
 import torch
@@ -24,9 +25,11 @@ def convert_to_c_array(target_path, prefix="", suffix=False):
     target = str(target_path + '/model.ot')
 
     toml_location = (Path(__file__).resolve() / '..' / '..' / 'Cargo.toml').resolve()
-    
+
     subprocess.call(
         ['cargo', 'run', '--bin=convert-tensor', '--manifest-path=%s' % toml_location, '--', source, target])
 
-convert_to_c_array('./0_DistilBERT', prefix='distilbert.')
-convert_to_c_array('./2_Dense', suffix=True)
+if __name__ == "__main__":
+    root = sys.argv[1]
+    convert_to_c_array(root + '/0_DistilBERT', prefix='distilbert.')
+    convert_to_c_array(root + '/2_Dense', suffix=True)
