@@ -52,7 +52,7 @@ impl Tokenizer for HFTokenizer {
             direction,
             pad_id,
             pad_type_id,
-            pad_token: pad_token.to_owned(),
+            pad_token,
         }));
 
         let max_length = 128;
@@ -77,7 +77,7 @@ impl Tokenizer for HFTokenizer {
 
         encoding
             .into_iter()
-            .map(|input| input.get_tokens().into_iter().map(|e| e.clone()).collect())
+            .map(|input| input.get_tokens().iter().map(String::from).collect())
             .collect()
     }
 
@@ -95,7 +95,7 @@ impl Tokenizer for HFTokenizer {
                 Tensor::of_slice(
                     &input
                         .get_ids()
-                        .into_iter()
+                        .iter()
                         .map(|e| match *e {
                             0 => 0 as i64,
                             _ => 1 as i64,
@@ -111,7 +111,7 @@ impl Tokenizer for HFTokenizer {
                 Tensor::of_slice(
                     &input
                         .get_ids()
-                        .into_iter()
+                        .iter()
                         .map(|e| *e as i64)
                         .collect::<Vec<_>>(),
                 )

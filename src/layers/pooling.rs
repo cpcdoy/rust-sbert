@@ -43,8 +43,6 @@ impl Pooling {
 
         output_vectors.push(sum_embeddings / sum_mask);
 
-        let output_vector = Tensor::cat(&output_vectors, 1);
-
-        output_vector
+        Tensor::cat(&output_vectors, 1)
     }
 }

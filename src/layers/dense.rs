@@ -74,7 +74,7 @@ where
 {
     let activation = String::deserialize(deserializer)?;
     activation
-        .split(".")
+        .split('.')
         .last()
         .map(Activation::from_str)
         .transpose()

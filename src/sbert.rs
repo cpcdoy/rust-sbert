@@ -43,7 +43,7 @@ where
         let nb_heads = config.n_heads as usize;
 
         let pooling = Pooling::new(root.clone());
-        let dense = Dense::new(root.clone())?;
+        let dense = Dense::new(root)?;
 
         let device = Device::cuda_if_available();
         log::info!("Using device {:?}", device);
@@ -84,7 +84,7 @@ where
 
         let input_len = sorted_pad_input.len();
         let tokenizer = self.tokenizer.clone();
-        let device = self.device.clone();
+        let device = self.device;
 
         // Tokenize
 
@@ -119,7 +119,8 @@ where
             let batch_attention_c = batch_attention.shallow_clone();
 
             let (embeddings, _, _) = self
-                .forward_t(Some(batch_tensor), Some(batch_attention))
+                .lm_model
+                .forward_t(Some(batch_tensor), Some(batch_attention), None, false)
                 .map_err(Error::Encoding)?;
 
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
@@ -162,7 +163,7 @@ where
 
         let input_len = sorted_pad_input.len();
         let tokenizer = self.tokenizer.clone();
-        let device = self.device.clone();
+        let device = self.device;
 
         // Tokenize
 
@@ -200,7 +201,8 @@ where
             let batch_attention_c = batch_attention.shallow_clone();
 
             let (embeddings, _, attention) = self
-                .forward_t(Some(batch_tensor), Some(batch_attention))
+                .lm_model
+                .forward_t(Some(batch_tensor), Some(batch_attention), None, false)
                 .map_err(Error::Encoding)?;
 
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
@@ -249,16 +251,6 @@ where
 
     pub fn tokenizer(&self) -> Arc<T> {
         self.tokenizer.clone()
-    }
-
-    fn forward_t(
-        &self,
-        input: Option<Tensor>,
-        mask: Option<Tensor>,
-    ) -> Result<(Tensor, Option<Vec<Tensor>>, Option<Vec<Tensor>>), &'static str> {
-        let (output, hidden_states, attention) =
-            self.lm_model.forward_t(input, mask, None, false)?;
-        Ok((output, hidden_states, attention))
     }
 }
 
