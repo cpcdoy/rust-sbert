@@ -1,6 +1,6 @@
 [package]
 name = "sbert"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
 description = "Rust implementation of Sentence Bert (SBert)"
@@ -13,6 +13,33 @@ include = [
     "Cargo.toml",
     "build.rs",
 ]
+
+[dependencies]
+lazy_static = "1.4"
+log = "0.4"
+num_cpus = "1.13"
+prost = "0.6"
+rayon = "1.4"
+rust-bert = "0.8"
+rust_tokenizers = "5.0"
+serde = "1.0"
+strum = "0.19"
+strum_macros = "0.19"
+tch = "0.2"
+thiserror = "1.0"
+tokenizers = "0.10"
+torch-sys = "0.2"
+
+[dev-dependencies]
+criterion = "0.3"
+rand = "0.7"
+
+[features]
+doc-only = ["tch/doc-only"]
+all-tests = []
+
+[package.metadata.docs.rs]
+features = [ "doc-only" ]
 
 [lib]
 name = "sbert"
@@ -34,30 +61,3 @@ name = "sbert_bench"
 path = "benches/bench_sbert.rs"
 harness = false
 doc = false
-
-[features]
-doc-only = ["tch/doc-only"]
-all-tests = []
-
-[package.metadata.docs.rs]
-features = [ "doc-only" ]
-
-[dev-dependencies]
-criterion = "0.3"
-
-[dependencies]
-rust_tokenizers = "3.1"
-tokenizers = "0.10.1"
-tch = "0.2"
-thiserror = "1.0"
-rust-bert = "0.7"
-serde = "1.0"
-strum = "0.19"
-strum_macros = "0.19"
-prost = "0.6"
-libmath = "0.2"
-rand = "0.7"
-torch-sys = "0.2"
-crossbeam = "0.7"
-lazy_static = "1.4"
-log = "0.4"

@@ -16,7 +16,7 @@ impl Tokenizer for RustTokenizers {
     where
         Self: Sized,
     {
-        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false);
+        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false, false)?;
 
         Ok(Self { tokenizer })
     }
@@ -55,7 +55,7 @@ impl Tokenizer for RustTokenizers {
             .map(|input| {
                 Tensor::of_slice(
                     &input
-                        .into_iter()
+                        .iter()
                         .map(|e| match *e {
                             0 => 0 as i64,
                             _ => 1 as i64,

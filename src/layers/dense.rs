@@ -54,7 +54,7 @@ impl Dense {
             init_conf,
         );
 
-        vs_dense.load(weights_file).map_err(Error::VarStore)?;
+        vs_dense.load(weights_file)?;
 
         Ok(Dense {
             linear,
@@ -74,7 +74,7 @@ where
 {
     let activation = String::deserialize(deserializer)?;
     activation
-        .split(".")
+        .split('.')
         .last()
         .map(Activation::from_str)
         .transpose()
