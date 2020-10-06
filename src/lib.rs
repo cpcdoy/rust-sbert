@@ -5,6 +5,7 @@ pub mod tokenizers;
 use rust_tokenizers::preprocessing::error::TokenizerError;
 use tch::TchError;
 use thiserror::Error;
+use rust_bert::RustBertError;
 
 pub use crate::sbert::SBert;
 pub use crate::tokenizers::{HFTokenizer, RustTokenizers, Tokenizer};
@@ -31,4 +32,6 @@ pub enum Error {
     Encoding(&'static str),
     #[error("Tokenizer error: {0}")]
     RustTokenizers(#[from] TokenizerError),
+    #[error("Rust bert error: {0}")]
+    RustBert(#[from] RustBertError),
 }

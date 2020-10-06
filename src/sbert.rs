@@ -118,10 +118,10 @@ where
         for (batch_tensor, batch_attention) in tokenized_batches.into_iter() {
             let batch_attention_c = batch_attention.shallow_clone();
 
-            let (embeddings, _, _) = self
+            let embeddings = self
                 .lm_model
-                .forward_t(Some(batch_tensor), Some(batch_attention), None, false)
-                .map_err(Error::Encoding)?;
+                .forward_t(Some(batch_tensor), Some(batch_attention), None, false)?
+                .hidden_state;
 
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);
@@ -200,10 +200,12 @@ where
         for (batch_len, batch_tensor, batch_attention) in tokenized_batches.into_iter() {
             let batch_attention_c = batch_attention.shallow_clone();
 
-            let (embeddings, _, attention) = self
-                .lm_model
-                .forward_t(Some(batch_tensor), Some(batch_attention), None, false)
-                .map_err(Error::Encoding)?;
+            let output =
+                self.lm_model
+                    .forward_t(Some(batch_tensor), Some(batch_attention), None, false)?;
+
+            let embeddings = output.hidden_state;
+            let attention = output.all_attentions;
 
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);

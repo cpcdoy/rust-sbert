@@ -34,12 +34,12 @@ impl Pooling {
         let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(&token_embeddings);
 
         let mut output_vectors = Vec::new();
-        let dim = [1];
+        const DIM: [i64; 1] = [1];
 
         let mut sum_mask = input_mask_expanded.copy();
-        sum_mask = sum_mask.sum1(&dim, false, Kind::Float);
+        sum_mask = sum_mask.sum1(&DIM, false, Kind::Float);
         let sum_embeddings =
-            (token_embeddings * input_mask_expanded).sum1(&dim, false, Kind::Float);
+            (token_embeddings * input_mask_expanded).sum1(&DIM, false, Kind::Float);
 
         output_vectors.push(sum_embeddings / sum_mask);
 
