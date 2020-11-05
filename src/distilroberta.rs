@@ -111,7 +111,14 @@ where
 
             let classification_logits = self
                 .lm_model
-                .forward_t(Some(batch_tensor), Some(batch_attention_c), None, None, None, false)
+                .forward_t(
+                    Some(batch_tensor),
+                    Some(batch_attention_c),
+                    None,
+                    None,
+                    None,
+                    false,
+                )
                 .logits;
 
             batch_tensors.extend(Vec::<Embeddings>::from(classification_logits));
