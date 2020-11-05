@@ -1,28 +1,45 @@
 use std::path::PathBuf;
 
-use rust_tokenizers::tokenizer::BertTokenizer;
+use rust_tokenizers::tokenizer::RobertaTokenizer;
 use rust_tokenizers::tokenizer::TruncationStrategy;
 use tch::Tensor;
 
 use crate::tokenizers::Tokenizer;
 use crate::Error;
 
-pub struct RustTokenizers {
-    tokenizer: BertTokenizer,
+pub struct RustTokenizersSentencePiece {
+    tokenizer: RobertaTokenizer,
 }
 
-impl Tokenizer for RustTokenizers {
+unsafe impl Send for RustTokenizersSentencePiece {}
+unsafe impl Sync for RustTokenizersSentencePiece {}
+
+impl Tokenizer for RustTokenizersSentencePiece {
     fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
     where
         Self: Sized,
     {
-        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false, false)?;
+        let path = path.into();
+        let vocab_file = path.join("vocab.json");
+        let merges_file = path.join("merges.txt");
+
+        let tokenizer = RobertaTokenizer::from_file(
+            &vocab_file.to_string_lossy(),
+            &merges_file.to_string_lossy(),
+            false,
+            false,
+        )?;
 
         Ok(Self { tokenizer })
     }
 
-    fn pre_tokenize<S: AsRef<str>>(&self, _input: &[S]) -> Vec<Vec<String>> {
-        Vec::new()
+    fn pre_tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Vec<String>> {
+        use rust_tokenizers::tokenizer::Tokenizer;
+
+        input
+            .iter()
+            .map(|s| self.tokenizer.tokenize(s))
+            .collect::<Vec<_>>()
     }
 
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
