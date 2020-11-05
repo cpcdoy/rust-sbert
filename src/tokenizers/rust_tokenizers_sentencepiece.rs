@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use rust_tokenizers::tokenizer::RobertaTokenizer;
+use rust_tokenizers::tokenizer::Tokenizer as Tok;
 use rust_tokenizers::tokenizer::TruncationStrategy;
 use tch::Tensor;
 
@@ -9,10 +10,8 @@ use crate::Error;
 
 pub struct RustTokenizersSentencePiece {
     tokenizer: RobertaTokenizer,
+    pad_token_id: i64,
 }
-
-unsafe impl Send for RustTokenizersSentencePiece {}
-unsafe impl Sync for RustTokenizersSentencePiece {}
 
 impl Tokenizer for RustTokenizersSentencePiece {
     fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
@@ -30,7 +29,12 @@ impl Tokenizer for RustTokenizersSentencePiece {
             false,
         )?;
 
-        Ok(Self { tokenizer })
+        let pad_token_id = tokenizer.vocab().special_values["<pad>"];
+
+        Ok(Self {
+            tokenizer,
+            pad_token_id,
+        })
     }
 
     fn pre_tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Vec<String>> {
@@ -62,7 +66,7 @@ impl Tokenizer for RustTokenizersSentencePiece {
             .into_iter()
             .map(|input| {
                 let mut token_ids = input.token_ids;
-                token_ids.extend(vec![0; max_len - token_ids.len()]);
+                token_ids.extend(vec![self.pad_token_id; max_len - token_ids.len()]);
                 token_ids
             })
             .collect::<Vec<_>>();
@@ -73,9 +77,12 @@ impl Tokenizer for RustTokenizersSentencePiece {
                 Tensor::of_slice(
                     &input
                         .iter()
-                        .map(|e| match *e {
-                            0 => 0 as i64,
-                            _ => 1 as i64,
+                        .map(|e| {
+                            if *e == self.pad_token_id {
+                                0 as i64
+                            } else {
+                                1 as i64
+                            }
                         })
                         .collect::<Vec<_>>(),
                 )

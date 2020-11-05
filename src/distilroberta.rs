@@ -93,30 +93,25 @@ where
                     max_range - batch_i
                 );
 
-                let (tokenized_input, _) = tokenizer.tokenize(&sorted_pad_input[range]);
+                let (tokenized_input, attention) = tokenizer.tokenize(&sorted_pad_input[range]);
 
                 let batch_tensor = Tensor::stack(&tokenized_input, 0).to(device);
+                let batch_attention = Tensor::stack(&attention, 0).to(device);
 
-                batch_tensor
+                (batch_tensor, batch_attention)
             })
-            .collect::<Vec<Tensor>>();
+            .collect::<Vec<(Tensor, Tensor)>>();
 
         // Embed
 
         let mut batch_tensors = Vec::<Embeddings>::with_capacity(input_len);
 
-        for batch_tensor in tokenized_batches.into_iter() {
+        for (batch_tensor, batch_attention) in tokenized_batches.into_iter() {
+            let batch_attention_c = batch_attention.shallow_clone();
 
             let classification_logits = self
                 .lm_model
-                .forward_t(
-                    Some(batch_tensor),
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                )
+                .forward_t(Some(batch_tensor), Some(batch_attention_c), None, None, None, false)
                 .logits;
 
             batch_tensors.extend(Vec::<Embeddings>::from(classification_logits));

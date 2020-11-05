@@ -116,6 +116,9 @@ mod tests {
 
         let mut texts = Vec::new();
         texts.push(String::from("Omg you are so bad at this game!"));
+        texts.push(String::from(
+            "wow it's a nice day todayyyyyyyyyyyyyyyyyyyy!!!",
+        ));
 
         let toks = sbert_model.tokenizer().pre_tokenize(&texts);
         println!("Pretokenize {:?}", toks);
@@ -127,15 +130,20 @@ mod tests {
 
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
-        let output = &sbert_model.encode(&texts, BATCH_SIZE).unwrap()[0][..2];
+        let output = &sbert_model.encode(&texts, BATCH_SIZE).unwrap();
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
         println!("Vec: {:?}", output);
 
-        let v = output
+        let v = output[0][..2]
+            .iter()
+            .map(|f| (f * 1000.0).round() / 1000.0)
+            .collect::<Vec<_>>();
+        let v2 = output[1][..2]
             .iter()
             .map(|f| (f * 1000.0).round() / 1000.0)
             .collect::<Vec<_>>();
         assert_eq!(v, [-1.057, 1.993]);
+        assert_eq!(v2, [3.055, -2.810]);
     }
 
     #[test]
