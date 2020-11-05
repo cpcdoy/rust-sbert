@@ -1,14 +1,18 @@
 pub mod layers;
 pub mod sbert;
 pub mod tokenizers;
+pub mod models;
+pub mod distilroberta;
 
-use rust_tokenizers::preprocessing::error::TokenizerError;
+use rust_tokenizers::error::TokenizerError;
 use tch::TchError;
 use thiserror::Error;
 use rust_bert::RustBertError;
 
+//pub use crate::models::DistilSBertModel;
+pub use crate::distilroberta::DistilRobertaForSequenceClassification;
 pub use crate::sbert::SBert;
-pub use crate::tokenizers::{HFTokenizer, RustTokenizers, Tokenizer};
+pub use crate::tokenizers::{HFTokenizer, RustTokenizers, RustTokenizersSentencePiece, Tokenizer};
 
 pub mod att {
     pub type Attention = Vec<f32>;
@@ -22,6 +26,7 @@ pub type Attentions = Vec<att::Layers>;
 
 pub type SBertRT = SBert<RustTokenizers>;
 pub type SBertHF = SBert<HFTokenizer>;
+pub type DistilRobertaForSequenceClassificationRT = DistilRobertaForSequenceClassification<RustTokenizersSentencePiece>;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
