@@ -8,6 +8,7 @@ use rust_bert::Config;
 use tch::{nn, Device, Tensor};
 
 use crate::layers::{Dense, Pooling};
+use crate::models::pad_sort;
 use crate::tokenizers::Tokenizer;
 use crate::{att, Attentions, Embeddings, Error};
 
@@ -141,7 +142,6 @@ where
         Ok(batch_tensors)
     }
 
-    
     pub fn encode_with_attention<S, B>(
         &self,
         input: &[S],
@@ -255,10 +255,4 @@ where
     pub fn tokenizer(&self) -> Arc<T> {
         self.tokenizer.clone()
     }
-}
-
-fn pad_sort<O: Ord>(arr: &[O]) -> Vec<usize> {
-    let mut idx = (0..arr.len()).collect::<Vec<_>>();
-    idx.sort_unstable_by(|&i, &j| arr[i].cmp(&arr[j]));
-    idx
 }

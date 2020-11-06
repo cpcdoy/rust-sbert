@@ -8,6 +8,7 @@ use rust_bert::roberta::RobertaForSequenceClassification;
 use rust_bert::Config;
 use tch::{nn, Device, Tensor};
 
+use crate::models::pad_sort;
 use crate::tokenizers::Tokenizer;
 use crate::{Embeddings, Error};
 
@@ -133,10 +134,4 @@ where
     pub fn tokenizer(&self) -> Arc<T> {
         self.tokenizer.clone()
     }
-}
-
-fn pad_sort<O: Ord>(arr: &[O]) -> Vec<usize> {
-    let mut idx = (0..arr.len()).collect::<Vec<_>>();
-    idx.sort_unstable_by(|&i, &j| arr[i].cmp(&arr[j]));
-    idx
 }
