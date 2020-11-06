@@ -193,7 +193,7 @@ mod tests {
 
         println!("Encoding {} sentence with attention...", texts.len());
         let output = &sbert_model
-            .encode_with_attention(&texts, BATCH_SIZE)
+            .forward_with_attention(&texts, BATCH_SIZE)
             .unwrap();
         let emb = &output.0[0][..5];
         let attention = &output.1;

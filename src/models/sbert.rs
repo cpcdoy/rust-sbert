@@ -142,7 +142,7 @@ where
         Ok(batch_tensors)
     }
 
-    pub fn encode_with_attention<S, B>(
+    pub fn forward_with_attention<S, B>(
         &self,
         input: &[S],
         batch_size: B,
