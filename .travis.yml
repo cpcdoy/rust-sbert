@@ -1,0 +1,25 @@
+language: rust
+dist: bionic
+
+jobs:
+  include:
+    - before_script:
+      - rustup component add rustfmt
+      script:
+        - cargo fmt -- --check
+    
+    - script:
+      - cargo build --verbose
+
+    - os:
+      - windows
+      script:
+        - cargo build --verbose
+
+    - script:
+      - sudo apt-get install python3-pip python3-setuptools
+      - pip3 install --upgrade pip
+      - pip3 install -r ./utils/requirements.txt --progress-bar off
+      - python3 ./utils/prepare_models.py
+      script:
+        - cargo test --verbose
