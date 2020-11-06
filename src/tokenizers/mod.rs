@@ -1,5 +1,6 @@
 mod hf_tokenizers;
 mod rust_tokenizers;
+mod rust_tokenizers_sentencepiece;
 
 use std::path::PathBuf;
 
@@ -15,3 +16,4 @@ pub trait Tokenizer {
 
 pub use self::hf_tokenizers::HFTokenizer;
 pub use self::rust_tokenizers::RustTokenizers;
+pub use self::rust_tokenizers_sentencepiece::RustTokenizersSentencePiece;
