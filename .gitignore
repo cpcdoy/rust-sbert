@@ -1,5 +1,5 @@
 target/
-./models/
+models/
 logs/
 notebooks/
 .ipynb_checkpoints/
