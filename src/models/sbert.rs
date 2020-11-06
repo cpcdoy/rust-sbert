@@ -66,7 +66,7 @@ where
         })
     }
 
-    pub fn encode<S, B>(&self, input: &[S], batch_size: B) -> Result<Vec<Embeddings>, Error>
+    pub fn forward<S, B>(&self, input: &[S], batch_size: B) -> Result<Vec<Embeddings>, Error>
     where
         S: AsRef<str>,
         B: Into<Option<usize>>,
@@ -141,6 +141,7 @@ where
         Ok(batch_tensors)
     }
 
+    
     pub fn encode_with_attention<S, B>(
         &self,
         input: &[S],

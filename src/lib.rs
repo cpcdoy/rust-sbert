@@ -1,8 +1,6 @@
 pub mod layers;
-pub mod sbert;
 pub mod tokenizers;
 pub mod models;
-pub mod distilroberta;
 
 use rust_tokenizers::error::TokenizerError;
 use tch::TchError;
@@ -10,8 +8,8 @@ use thiserror::Error;
 use rust_bert::RustBertError;
 
 //pub use crate::models::DistilSBertModel;
-pub use crate::distilroberta::DistilRobertaForSequenceClassification;
-pub use crate::sbert::SBert;
+pub use crate::models::distilroberta::DistilRobertaForSequenceClassification;
+pub use crate::models::sbert::SBert;
 pub use crate::tokenizers::{HFTokenizer, RustTokenizers, RustTokenizersSentencePiece, Tokenizer};
 
 pub mod att {

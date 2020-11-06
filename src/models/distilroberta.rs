@@ -13,8 +13,6 @@ use crate::{Embeddings, Error};
 
 pub struct DistilRobertaForSequenceClassification<T> {
     lm_model: RobertaForSequenceClassification,
-    nb_layers: usize,
-    nb_heads: usize,
     tokenizer: Arc<T>,
     device: Device,
 }
@@ -35,8 +33,6 @@ where
         // Set-up DistilRoBERTa model and tokenizer
 
         let config = BertConfig::from_file(&config_file);
-        let nb_layers = config.num_hidden_layers as usize;
-        let nb_heads = config.num_attention_heads as usize;
 
         let device = Device::cuda_if_available();
         log::info!("Using device {:?}", device);
@@ -50,14 +46,12 @@ where
 
         Ok(DistilRobertaForSequenceClassification {
             lm_model,
-            nb_layers,
-            nb_heads,
             tokenizer,
             device,
         })
     }
 
-    pub fn encode<S, B>(&self, input: &[S], batch_size: B) -> Result<Vec<Embeddings>, Error>
+    pub fn forward<S, B>(&self, input: &[S], batch_size: B) -> Result<Vec<Embeddings>, Error>
     where
         S: AsRef<str>,
         B: Into<Option<usize>>,

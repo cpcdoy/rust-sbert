@@ -33,7 +33,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
 
     let text = "TTThis player needs tp be reported lolz.";
     c.bench_function("Encode batch, safe sbert rust tokenizer, total 1", |b| {
-        b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap())
+        b.iter(|| sbert_model.forward(black_box(&[text]), None).unwrap())
     });
 
     let mut r = StdRng::seed_from_u64(42);
@@ -45,7 +45,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
             batch_size
         );
         c.bench_function(&s, |b| {
-            b.iter(|| black_box(sbert_model.encode(&texts, batch_size)).unwrap())
+            b.iter(|| black_box(sbert_model.forward(&texts, batch_size)).unwrap())
         });
     }
 }
@@ -61,7 +61,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     let text = "TTThis player needs tp be reported lolz.";
     c.bench_function(
         "Encode batch, safe sbert, hugging face tokenizer, total 1",
-        |b| b.iter(|| sbert_model.encode(black_box(&[text]), None).unwrap()),
+        |b| b.iter(|| sbert_model.forward(black_box(&[text]), None).unwrap()),
     );
 
     let mut r = StdRng::seed_from_u64(42);
@@ -73,7 +73,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
             batch_size
         );
         c.bench_function(&s, |b| {
-            b.iter(|| black_box(sbert_model.encode(&texts, batch_size)).unwrap())
+            b.iter(|| black_box(sbert_model.forward(&texts, batch_size)).unwrap())
         });
     }
 }

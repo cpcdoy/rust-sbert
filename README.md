@@ -48,7 +48,7 @@ let texts = ["You can encode",
 
 let batch_size = 64;
 
-let output = sbert_model.encode(texts.to_vec(), batch_size).unwrap();
+let output = sbert_model.forward(texts.to_vec(), batch_size).unwrap();
 ```
 
 The parameter `batch_size` can be left to `None` to let the model use its default value.

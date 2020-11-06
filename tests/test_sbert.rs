@@ -33,8 +33,6 @@ mod tests {
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
-        let model_path = home.clone();
-
         home.push("0_DistilBERT");
 
         let vocab_file = home.join("vocab.txt");
@@ -46,12 +44,6 @@ mod tests {
         let tokens = tok.pre_tokenize(&texts);
         println!("Tokens {:?}", tokens[0]);
 
-        let sbert_model = SBertHF::new(model_path).unwrap();
-        let output = sbert_model
-            .encode_with_attention(&texts, BATCH_SIZE)
-            .unwrap();
-
-        println!("att {:?}", output.1[0][0]);
         assert_eq!(
             tokens[0],
             [
@@ -86,9 +78,9 @@ mod tests {
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
-            &sbert_model.encode(&texts, BATCH_SIZE).unwrap();
+            &sbert_model.forward(&texts, BATCH_SIZE).unwrap();
         }
-        let output = &sbert_model.encode(&texts, BATCH_SIZE).unwrap()[0][..5];
+        let output = &sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
         println!("Vec: {:?}", output);
 
@@ -130,7 +122,7 @@ mod tests {
 
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
-        let output = &sbert_model.encode(&texts, BATCH_SIZE).unwrap();
+        let output = &sbert_model.forward(&texts, BATCH_SIZE).unwrap();
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
         println!("Vec: {:?}", output);
 
@@ -171,9 +163,9 @@ mod tests {
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
-            &sbert_model.encode(&texts, BATCH_SIZE).unwrap()[0][..5];
+            &sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
         }
-        let output = &sbert_model.encode(&texts, BATCH_SIZE).unwrap()[0][..5];
+        let output = &sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
         println!("Vec: {:?}", output);
 
