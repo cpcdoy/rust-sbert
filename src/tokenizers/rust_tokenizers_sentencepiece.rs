@@ -1,28 +1,49 @@
 use std::path::PathBuf;
 
-use rust_tokenizers::tokenizer::BertTokenizer;
+use rust_tokenizers::tokenizer::RobertaTokenizer;
+use rust_tokenizers::tokenizer::Tokenizer as Tok;
 use rust_tokenizers::tokenizer::TruncationStrategy;
 use tch::Tensor;
 
 use crate::tokenizers::Tokenizer;
 use crate::Error;
 
-pub struct RustTokenizers {
-    tokenizer: BertTokenizer,
+pub struct RustTokenizersSentencePiece {
+    tokenizer: RobertaTokenizer,
+    pad_token_id: i64,
 }
 
-impl Tokenizer for RustTokenizers {
+impl Tokenizer for RustTokenizersSentencePiece {
     fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
     where
         Self: Sized,
     {
-        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false, false)?;
+        let path = path.into();
+        let vocab_file = path.join("vocab.json");
+        let merges_file = path.join("merges.txt");
 
-        Ok(Self { tokenizer })
+        let tokenizer = RobertaTokenizer::from_file(
+            &vocab_file.to_string_lossy(),
+            &merges_file.to_string_lossy(),
+            false,
+            false,
+        )?;
+
+        let pad_token_id = tokenizer.vocab().special_values["<pad>"];
+
+        Ok(Self {
+            tokenizer,
+            pad_token_id,
+        })
     }
 
-    fn pre_tokenize<S: AsRef<str>>(&self, _input: &[S]) -> Vec<Vec<String>> {
-        Vec::new()
+    fn pre_tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Vec<String>> {
+        use rust_tokenizers::tokenizer::Tokenizer;
+
+        input
+            .iter()
+            .map(|s| self.tokenizer.tokenize(s))
+            .collect::<Vec<_>>()
     }
 
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
@@ -45,7 +66,7 @@ impl Tokenizer for RustTokenizers {
             .into_iter()
             .map(|input| {
                 let mut token_ids = input.token_ids;
-                token_ids.extend(vec![0; max_len - token_ids.len()]);
+                token_ids.extend(vec![self.pad_token_id; max_len - token_ids.len()]);
                 token_ids
             })
             .collect::<Vec<_>>();
@@ -56,9 +77,12 @@ impl Tokenizer for RustTokenizers {
                 Tensor::of_slice(
                     &input
                         .iter()
-                        .map(|e| match *e {
-                            0 => 0 as i64,
-                            _ => 1 as i64,
+                        .map(|e| {
+                            if *e == self.pad_token_id {
+                                0 as i64
+                            } else {
+                                1 as i64
+                            }
                         })
                         .collect::<Vec<_>>(),
                 )
