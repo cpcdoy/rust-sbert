@@ -16,7 +16,7 @@ jobs:
     #   script:
     #     - cargo build --verbose
 
-    - script:
+    - before_script:
       - sudo apt-get install -y python3-pip python3-setuptools tree
       - pip3 install --upgrade pip
       - pip3 install -r ./utils/requirements.txt --progress-bar off
