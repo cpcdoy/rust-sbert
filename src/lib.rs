@@ -1,11 +1,11 @@
 pub mod layers;
-pub mod tokenizers;
 pub mod models;
+pub mod tokenizers;
 
+use rust_bert::RustBertError;
 use rust_tokenizers::error::TokenizerError;
 use tch::TchError;
 use thiserror::Error;
-use rust_bert::RustBertError;
 
 //pub use crate::models::DistilSBertModel;
 pub use crate::models::distilroberta::DistilRobertaForSequenceClassification;
@@ -24,7 +24,8 @@ pub type Attentions = Vec<att::Layers>;
 
 pub type SBertRT = SBert<RustTokenizers>;
 pub type SBertHF = SBert<HFTokenizer>;
-pub type DistilRobertaForSequenceClassificationRT = DistilRobertaForSequenceClassification<RustTokenizersSentencePiece>;
+pub type DistilRobertaForSequenceClassificationRT =
+    DistilRobertaForSequenceClassification<RustTokenizersSentencePiece>;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
