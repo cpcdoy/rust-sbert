@@ -17,9 +17,11 @@ jobs:
         - cargo build --verbose
 
     - script:
-      - sudo apt-get install python3-pip python3-setuptools
+      - sudo apt-get install python3-pip python3-setuptools tree
       - pip3 install --upgrade pip
       - pip3 install -r ./utils/requirements.txt --progress-bar off
       - python3 ./utils/prepare_models.py
+      - ls -la
+      - tree
       script:
         - cargo test --verbose
