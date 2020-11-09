@@ -1,9 +1,10 @@
-# Rust SBert [![Latest Version]][crates.io] [![Latest Doc]][docs.rs]
+# Rust SBert [![Latest Version]][crates.io] [![Latest Doc]][docs.rs] ![Build Status]
 
 [Latest Version]: https://img.shields.io/crates/v/sbert.svg
 [crates.io]: https://crates.io/crates/sbert
 [Latest Doc]: https://docs.rs/sbert/badge.svg
 [docs.rs]: https://docs.rs/sbert
+[Build Status]: https://travis-ci.com/cpcdoy/rust-sbert.svg?branch=master
 
 Rust port of [sentence-transformers][] using [rust-bert][] and [tch-rs][].
 
