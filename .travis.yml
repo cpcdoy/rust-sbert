@@ -24,4 +24,6 @@ jobs:
       - ls -la
       - tree
       script:
-        - cargo test --verbose
+        #- cargo test --verbose
+        - ls -la
+        - tree
