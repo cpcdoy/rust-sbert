@@ -7,7 +7,6 @@ use rust_tokenizers::error::TokenizerError;
 use tch::TchError;
 use thiserror::Error;
 
-//pub use crate::models::DistilSBertModel;
 pub use crate::models::distilroberta::DistilRobertaForSequenceClassification;
 pub use crate::models::sbert::SBert;
 pub use crate::tokenizers::{HFTokenizer, RustTokenizers, RustTokenizersSentencePiece, Tokenizer};
