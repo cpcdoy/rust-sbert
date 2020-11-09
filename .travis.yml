@@ -3,27 +3,23 @@ dist: bionic
 
 jobs:
   include:
-    # - before_script:
-    #   - rustup component add rustfmt
-    #   script:
-    #     - cargo fmt -- --check
+    - before_script:
+      - rustup component add rustfmt
+      script:
+        - cargo fmt -- --check
     
-    # - script:
-    #   - cargo build --verbose
+    - script:
+      - cargo build --verbose
 
-    # - os:
-    #   - windows
-    #   script:
-    #     - cargo build --verbose
+    - os:
+      - windows
+      script:
+        - cargo build --verbose
 
     - before_script:
       - sudo apt-get install -y python3-pip python3-setuptools tree
       - pip3 install --upgrade pip
       - pip3 install -r ./utils/requirements.txt --progress-bar off
       - python3 ./utils/prepare_models.py
-      - ls -la
-      - sudo apt install tree && tree
       script:
-        #- cargo test --verbose
-        - ls -la
-        - tree
+        - cargo test --verbose
