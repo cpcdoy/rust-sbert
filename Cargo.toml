@@ -56,8 +56,19 @@ name = "sbert_test"
 path = "tests/test_sbert.rs"
 doc = false
 
+[[test]]
+name = "distilroberta_test"
+path = "tests/test_distilroberta.rs"
+doc = false
+
 [[bench]]
 name = "sbert_bench"
 path = "benches/bench_sbert.rs"
+harness = false
+doc = false
+
+[[bench]]
+name = "distilroberta_bench"
+path = "benches/bench_distilroberta.rs"
 harness = false
 doc = false
