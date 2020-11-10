@@ -1,6 +1,7 @@
 language: rust
 os: linux
 dist: bionic
+cache: cargo
 
 jobs:
   include:
