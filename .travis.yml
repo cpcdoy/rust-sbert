@@ -1,7 +1,13 @@
 language: rust
 os: linux
 dist: bionic
-cache: cargo
+
+cache:
+  directories:
+    - /home/travis/.cargo
+
+before_cache:
+  - rm -rf /home/travis/.cargo/registry
 
 jobs:
   include:
