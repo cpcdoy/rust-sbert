@@ -12,9 +12,11 @@ Supports both [rust-tokenizers][] and Hugging Face's [tokenizers][].
 
 ## Supported models
 
-### Multilingual Models
+### Models
 
-- **distiluse-base-multilingual-cased**: Supported languages: Arabic, Chinese, Dutch, English, French, German,  Italian, Korean, Polish, Portuguese, Russian, Spanish, Turkish. Performance on the extended STS2017: 80.1
+- **distiluse-base-multilingual-cased**: Supported languages: Arabic, Chinese, Dutch, English, French, German, Italian, Korean, Polish, Portuguese, Russian, Spanish, Turkish. Performance on the extended STS2017: 80.1
+
+- **DistilRoBERTa**-based classifiers
 
 ## Usage
 
