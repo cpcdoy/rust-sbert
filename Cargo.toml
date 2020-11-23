@@ -20,15 +20,15 @@ log = "0.4"
 num_cpus = "1.13"
 prost = "0.6"
 rayon = "1.5"
-rust-bert = { git="https://github.com/guillaume-be/rust-bert", commit="20a91a2" }
+rust-bert = { git="https://github.com/guillaume-be/rust-bert", rev="706169a" }
 rust_tokenizers = "6.0"
 serde = "1.0"
-strum = "0.19"
-strum_macros = "0.19"
-tch = "0.2"
+strum = "0.20"
+strum_macros = "0.20"
+tch = "0.3"
 thiserror = "1.0"
 tokenizers = "0.10"
-torch-sys = "0.2"
+torch-sys = "0.3"
 
 [dev-dependencies]
 criterion = "0.3"
@@ -56,8 +56,19 @@ name = "sbert_test"
 path = "tests/test_sbert.rs"
 doc = false
 
+[[test]]
+name = "distilroberta_test"
+path = "tests/test_distilroberta.rs"
+doc = false
+
 [[bench]]
 name = "sbert_bench"
 path = "benches/bench_sbert.rs"
+harness = false
+doc = false
+
+[[bench]]
+name = "distilroberta_bench"
+path = "benches/bench_distilroberta.rs"
 harness = false
 doc = false

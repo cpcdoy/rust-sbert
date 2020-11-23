@@ -4,16 +4,12 @@ use std::path::PathBuf;
 use criterion::black_box;
 use criterion::Criterion;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use rust_tokenizers::bert_tokenizer::BertTokenizer;
-use rust_tokenizers::preprocessing::tokenizer::base_tokenizer::{Tokenizer, TruncationStrategy};
+use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 use tokenizers::models::wordpiece::WordPiece;
 use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
 use tokenizers::processors::bert::BertProcessing;
 use tokenizers::tokenizer;
-
-// Windows Hack
-// use torch_sys::dummy_cuda_dependency;
 
 use sbert::{SBertHF, SBertRT};
 
