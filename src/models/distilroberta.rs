@@ -116,7 +116,9 @@ where
                 )
                 .logits;
 
-            batch_tensors.extend(Vec::<Embeddings>::from(classification_logits));
+            let normalized_logits = classification_logits.softmax(1, classification_logits.kind());
+
+            batch_tensors.extend(Vec::<Embeddings>::from(normalized_logits));
         }
 
         // Sort results
