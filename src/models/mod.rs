@@ -1,5 +1,6 @@
 pub mod distilroberta;
 pub mod sbert;
+pub mod character_bert;
 
 pub use self::distilroberta::DistilRobertaForSequenceClassification;
 pub use self::sbert::SBert;

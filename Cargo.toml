@@ -3,7 +3,7 @@ name = "sbert"
 version = "0.4.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
-description = "Rust implementation of Sentence Bert (SBert)"
+description = "Rust implementation of Sentence Bert (SBert) and other transformers"
 repository = "https://github.com/cpcdoy/rust-sbert"
 keywords = ["nlp", "embedding", "bert", "sbert", "transformers"]
 license = "Apache-2.0"
@@ -20,7 +20,7 @@ log = "0.4"
 num_cpus = "1.13"
 prost = "0.6"
 rayon = "1.5"
-rust-bert = { git="https://github.com/guillaume-be/rust-bert", rev="706169a" }
+rust-bert = { git = "https://github.com/guillaume-be/rust-bert.git", rev = "629e194f844fb831b9f618f03b1fc91a8eaf9330" }
 rust_tokenizers = "6.0"
 serde = "1.0"
 strum = "0.20"
