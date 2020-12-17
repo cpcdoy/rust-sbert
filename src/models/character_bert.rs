@@ -3,12 +3,10 @@ use std::collections::HashMap;
 
 use rust_bert::bert::BertEncoder;
 use rust_bert::bert::BertPooler;
-use rust_bert::bert::{BertConfig, BertEmbedding};
-use rust_bert::roberta::RobertaEmbeddings;
+use rust_bert::bert::{BertConfig};
 use rust_bert::{Config, RustBertError};
 use serde::{Deserialize, Serialize};
-use tch::nn::{self, Module, RNN};
-use tch::{Kind, Tensor};
+use tch::{nn, Kind, Tensor};
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -66,7 +64,7 @@ pub struct BertCharacterEmbeddings {
     position_embeddings: nn::Embedding,
     token_type_embeddings: nn::Embedding,
     layer_norm: nn::LayerNorm,
-    dropout: nn::dropout,
+    dropout: u32,
 }
 
 impl BertCharacterEmbeddings {
