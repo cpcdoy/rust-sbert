@@ -171,7 +171,7 @@ impl CharacterCNN {
         let char_embeddings = p.borrow().var(
             "_char_embedding_weights",
             &[options.n_characters + 1, options.embedding_dim],
-            char_embeddings_conf.ws_init
+            char_embeddings_conf.ws_init,
         );
 
         // Init CNNs weights
@@ -620,7 +620,9 @@ impl CharacterBertForSequenceClassification {
             train,
         )?;
 
-        let logits = self.classifier.forward_t(&character_bert_output.sequence_output, train);
+        let logits = self
+            .classifier
+            .forward_t(&character_bert_output.sequence_output, train);
 
         Ok(CharacterBertSequenceClassificationOutput {
             logits,

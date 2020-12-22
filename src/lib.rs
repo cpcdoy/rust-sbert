@@ -7,9 +7,11 @@ use rust_tokenizers::error::TokenizerError;
 use tch::TchError;
 use thiserror::Error;
 
+pub use crate::models::character_bert::{
+    CharacterBertConfig, CharacterBertForSequenceClassification, CharacterBertModel,
+};
 pub use crate::models::distilroberta::DistilRobertaForSequenceClassification;
 pub use crate::models::sbert::SBert;
-pub use crate::models::character_bert::{CharacterBertModel, CharacterBertForSequenceClassification, CharacterBertConfig};
 pub use crate::tokenizers::{HFTokenizer, RustTokenizers, RustTokenizersSentencePiece, Tokenizer};
 
 pub mod att {

@@ -9,9 +9,9 @@ mod tests {
     use std::error::Error;
 
     use rust_bert::Config;
-    use tch::{nn, Device, Tensor, Kind};
+    use tch::{nn, Device, Kind, Tensor};
 
-    use sbert::{CharacterBertForSequenceClassification, CharacterBertConfig};
+    use sbert::{CharacterBertConfig, CharacterBertForSequenceClassification};
 
     const BATCH_SIZE: usize = 64;
 
@@ -32,8 +32,8 @@ mod tests {
         vs.variables()["classifier.out_proj.bias"].print();
         // println!("Varstore content before: {:?}", vs.variables());
         vs.load(weights_file).unwrap();
-//        let partials = vs.load_partial(weights_file);
-//        println!("partials: {:?}", partials);
+        //        let partials = vs.load_partial(weights_file);
+        //        println!("partials: {:?}", partials);
 
         println!("Varstore len: {:?}", vs.len());
         println!("Varstore content: {:?}", vs.variables());
@@ -42,7 +42,18 @@ mod tests {
         let _guard = tch::no_grad_guard();
 
         let input_shape = [1, 2, 50];
-        let r = model.forward_t(Some(Tensor::ones(&input_shape, (Kind::Int64, device))), None, None, None, None, &None, &None, false).unwrap();
+        let r = model
+            .forward_t(
+                Some(Tensor::ones(&input_shape, (Kind::Int64, device))),
+                None,
+                None,
+                None,
+                None,
+                &None,
+                &None,
+                false,
+            )
+            .unwrap();
 
         vs.variables()["classifier.out_proj.bias"].print();
 
