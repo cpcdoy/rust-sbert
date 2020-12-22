@@ -123,7 +123,8 @@ pub struct CharacterCNNOptions {
 
 pub struct CharacterCNN {
     options: CharacterCNNOptions,
-    char_embeddings: nn::Embedding,
+    char_embeddings: Tensor,
+    char_embeddings_conf: nn::EmbeddingConfig,
     convolutions: Vec<nn::Conv1D>,
     highway: Highway,
     projection: nn::Linear,
@@ -159,12 +160,18 @@ impl CharacterCNN {
         //let output_dim = conf.hidden_size;
 
         // Init char embeddings
-        let emb_conf = nn::EmbeddingConfig::default();
-        let char_embeddings = nn::embedding(
-            p.borrow() / "_char_embedding_weights",
-            options.n_characters + 1,
-            options.embedding_dim,
-            emb_conf,
+        let char_embeddings_conf = nn::EmbeddingConfig::default();
+        // let char_embeddings = nn::embedding(
+        //     p.borrow() / "_char_embedding_weights",
+        //     options.n_characters + 1,
+        //     options.embedding_dim,
+        //     emb_conf,
+        // );
+
+        let char_embeddings = p.borrow().var(
+            "_char_embedding_weights",
+            &[options.n_characters + 1, options.embedding_dim],
+            char_embeddings_conf.ws_init
         );
 
         // Init CNNs weights
@@ -205,6 +212,7 @@ impl CharacterCNN {
         Self {
             options,
             char_embeddings,
+            char_embeddings_conf,
             convolutions,
             highway,
             projection,
@@ -220,9 +228,17 @@ impl CharacterCNN {
 
         let max_chars_per_token = self.options.max_characters_per_token;
 
-        let character_embedding = self
-            .char_embeddings
-            .forward(&character_ids_with_bos_eos.view([-1, max_chars_per_token]));
+        // let character_embedding = self
+        //     .char_embeddings
+        //     .forward(&character_ids_with_bos_eos.view([-1, max_chars_per_token]));
+
+        let character_embedding = Tensor::embedding(
+            &self.char_embeddings,
+            &character_ids_with_bos_eos.view([-1, max_chars_per_token]),
+            self.char_embeddings_conf.padding_idx,
+            self.char_embeddings_conf.scale_grad_by_freq,
+            self.char_embeddings_conf.sparse,
+        );
 
         let character_embedding = character_embedding.transpose(1, 2);
         let mut convs = Vec::<Tensor>::with_capacity(self.convolutions.len());
@@ -320,21 +336,30 @@ impl BertCharacterEmbeddings {
 
         let position_ids = position_ids.unwrap_or_else(|| {
             let position_ids = Tensor::arange(seq_length, (Kind::Int64, input_ids.device()));
+            println!("position_ids: {:?}", position_ids.size());
+            println!("input_ids: {:?}", input_ids.size());
             position_ids
                 .unsqueeze(0)
-                .expand_as(&input_ids.slice(2, 0, 1, 1))
+                .expand_as(&input_ids.slice(2, 0, 1, 1).squeeze1(-1))
         });
+
+        println!("-1");
 
         // In original implem, but redundant...
         // let token_type_ids =
         //     token_type_ids.unwrap_or_else(|| input_ids.slice(2, 0, 1, 1).zeros_like());
 
         let word_embeddings = self.word_embeddings.forward(input_ids).unwrap();
+        println!("-2");
         let position_embeddings = self.position_embeddings.forward(&position_ids);
+        println!("-3");
         let token_type_embeddings = self.token_type_embeddings.forward(&token_type_ids);
+        println!("-4");
         let mut embeddings = word_embeddings + position_embeddings + token_type_embeddings;
         embeddings = self.layer_norm.forward(&embeddings);
+        println!("-5");
         embeddings = embeddings.dropout(self.hidden_dropout_prob, train);
+        println!("-6");
 
         Ok(embeddings)
     }
@@ -362,14 +387,14 @@ impl CharacterBertModel {
     where
         P: Borrow<nn::Path<'p>>,
     {
-        let p = p.borrow() / "roberta";
+        let p = p.borrow();
         let bert_conf = conf.as_bert_config();
 
         let is_decoder = conf.is_decoder.unwrap_or(false);
 
-        let embeddings = BertCharacterEmbeddings::new(&p / "embeddings", conf);
-        let encoder = BertEncoder::new(&p / "encoder", &bert_conf);
-        let pooler = BertPooler::new(&p / "poolr", &bert_conf);
+        let embeddings = BertCharacterEmbeddings::new(p / "embeddings", conf);
+        let encoder = BertEncoder::new(p / "encoder", &bert_conf);
+        let pooler = BertPooler::new(p / "pooler", &bert_conf);
 
         CharacterBertModel {
             is_decoder,
@@ -390,6 +415,7 @@ impl CharacterBertModel {
         encoder_attention_mask: &Option<Tensor>,
         train: bool,
     ) -> Result<CharacterBertModelOutput, RustBertError> {
+        println!("1");
         let (input_shape, device) = match (&input_ids, &input_embeds) {
             (Some(_), Some(_)) => Err(RustBertError::ValueError(
                 "You cannot specify both input_ds and inputs_embeds at the same time".into(),
@@ -409,6 +435,7 @@ impl CharacterBertModel {
         let token_type_ids =
             token_type_ids.unwrap_or_else(|| Tensor::zeros(&input_shape, (Kind::Int64, device)));
 
+        println!("2");
         let extended_attention_mask = match attention_mask.dim() {
             3 => attention_mask.unsqueeze(1),
             2 => {
@@ -432,6 +459,7 @@ impl CharacterBertModel {
             ))?,
         };
 
+        println!("3");
         // Should do this for fp16 compat if needed
         //let extended_attention_mask = extended_attention_mask.to_kind(self.parameters.kind());
         let extended_attention_mask: Tensor = (1.0 - extended_attention_mask) * -10000.0;
@@ -475,10 +503,12 @@ impl CharacterBertModel {
 
         let input_ids = input_ids.unwrap();
 
+        println!("4");
         let embedding_output =
             self.embeddings
                 .forward_t(input_ids, token_type_ids, position_ids, train)?;
 
+        println!("5");
         let BertEncoderOutput {
             hidden_state,
             all_hidden_states,
@@ -495,8 +525,10 @@ impl CharacterBertModel {
         let hidden_states = all_hidden_states;
         let attentions = all_attentions;
 
+        println!("6");
         let pooled_output = self.pooler.forward(&sequence_output);
 
+        println!("7");
         Ok(CharacterBertModelOutput {
             sequence_output,
             pooled_output,
@@ -504,4 +536,100 @@ impl CharacterBertModel {
             attentions,
         })
     }
+}
+
+pub struct CharacterBertClassificationHead {
+    dense: nn::Linear,
+    hidden_dropout_prob: f64,
+    out_proj: nn::Linear,
+}
+
+impl CharacterBertClassificationHead {
+    pub fn new<'p, P>(p: P, conf: &CharacterBertConfig) -> Self
+    where
+        P: Borrow<nn::Path<'p>>,
+    {
+        let p = p.borrow();
+
+        let lin_conf = nn::LinearConfig::default();
+        let dense = nn::linear(p / "dense", conf.hidden_size, conf.hidden_size, lin_conf);
+
+        let hidden_dropout_prob = conf.hidden_dropout_prob;
+
+        let lin_conf = nn::LinearConfig::default();
+        let out_proj = nn::linear(p / "out_proj", conf.hidden_size, conf.num_labels, lin_conf);
+
+        Self {
+            dense,
+            hidden_dropout_prob,
+            out_proj,
+        }
+    }
+
+    pub fn forward_t(&self, features: &Tensor, train: bool) -> Tensor {
+        let x = features.slice(1, 0, 1, 1);
+        let x = x.dropout(self.hidden_dropout_prob, train);
+        let x = self.dense.forward(&x);
+        let x = x.tanh();
+        let x = x.dropout(self.hidden_dropout_prob, train);
+        let x = self.out_proj.forward(&x);
+
+        x
+    }
+}
+
+pub struct CharacterBertForSequenceClassification {
+    character_bert: CharacterBertModel,
+    classifier: CharacterBertClassificationHead,
+}
+
+impl CharacterBertForSequenceClassification {
+    pub fn new<'p, P>(p: P, config: &CharacterBertConfig) -> Self
+    where
+        P: Borrow<nn::Path<'p>>,
+    {
+        let p = p.borrow();
+        let character_bert = CharacterBertModel::new(p / "roberta", config);
+        let classifier = CharacterBertClassificationHead::new(p / "classifier", config);
+
+        Self {
+            character_bert,
+            classifier,
+        }
+    }
+
+    pub fn forward_t(
+        &self,
+        input_ids: Option<Tensor>,
+        attention_mask: Option<Tensor>,
+        token_type_ids: Option<Tensor>,
+        position_ids: Option<Tensor>,
+        input_embeds: Option<Tensor>,
+        encoder_hidden_states: &Option<Tensor>,
+        encoder_attention_mask: &Option<Tensor>,
+        train: bool,
+    ) -> Result<CharacterBertSequenceClassificationOutput, RustBertError> {
+        let character_bert_output = self.character_bert.forward_t(
+            input_ids,
+            attention_mask,
+            token_type_ids,
+            position_ids,
+            input_embeds,
+            encoder_hidden_states,
+            encoder_attention_mask,
+            train,
+        )?;
+
+        let logits = self.classifier.forward_t(&character_bert_output.sequence_output, train);
+
+        Ok(CharacterBertSequenceClassificationOutput {
+            logits,
+            character_bert_output,
+        })
+    }
+}
+
+pub struct CharacterBertSequenceClassificationOutput {
+    pub logits: Tensor,
+    pub character_bert_output: CharacterBertModelOutput,
 }

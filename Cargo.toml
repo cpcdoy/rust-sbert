@@ -52,6 +52,11 @@ path = "src/bin/convert-tensor.rs"
 doc = false
 
 [[test]]
+name = "character_bert_test"
+path = "tests/test_character_bert.rs"
+doc = false
+
+[[test]]
 name = "sbert_test"
 path = "tests/test_sbert.rs"
 doc = false
