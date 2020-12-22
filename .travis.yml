@@ -31,4 +31,4 @@ jobs:
       - pip3 install -r ./utils/requirements.txt --progress-bar off
       - python3 ./utils/prepare_models.py
       script:
-        - cargo test -- --skip test_sbert_encode_attention --skip test_distilroberta_for_classification_rust_tokenizers_sentencepiece --skip test_character_bert_model
+        - cargo test -- --skip test_sbert_encode_attention --skip test_distilroberta_for_classification_rust_tokenizers_sentencepiece --skip test_rust_tokenizers_sentencepiece --skip test_character_bert_model
