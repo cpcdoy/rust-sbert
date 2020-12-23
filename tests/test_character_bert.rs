@@ -61,7 +61,7 @@ mod tests {
                 false,
             )
             .unwrap();
-        
+
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
 
         let r = r.logits.softmax(2, Kind::Float).squeeze1(1);
