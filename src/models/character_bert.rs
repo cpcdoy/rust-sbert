@@ -338,8 +338,14 @@ impl CharacterBertTokenizer {
             0,
         );
         let mut pretokenized = n.into();
-        let pre_tokens: Vec<String> = self.pre_tokenizer.pre_tokenize(&mut pretokenized).unwrap().into_iter().map(|(s, o)| s).collect();
-        
+        let pre_tokens: Vec<String> = self
+            .pre_tokenizer
+            .pre_tokenize(&mut pretokenized)
+            .unwrap()
+            .into_iter()
+            .map(|(s, o)| s)
+            .collect();
+
         let tensor = self.indexer.as_padded_tensor(&[&pre_tokens], true, None);
 
         println!("tensor {:?}", tensor);

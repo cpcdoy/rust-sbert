@@ -8,8 +8,8 @@ mod tests {
     use tch::{nn, Device, Kind, Tensor};
 
     use sbert::{
-        CharacterBertConfig, CharacterBertForSequenceClassification, CharacterIndexer,
-        CharacterMapper, CharacterBertTokenizer,
+        CharacterBertConfig, CharacterBertForSequenceClassification, CharacterBertTokenizer,
+        CharacterIndexer, CharacterMapper,
     };
 
     #[test]
