@@ -9,6 +9,7 @@ use thiserror::Error;
 
 pub use crate::models::character_bert::{
     CharacterBertConfig, CharacterBertForSequenceClassification, CharacterBertModel,
+    CharacterIndexer, CharacterMapper, CharacterBertTokenizer,
 };
 pub use crate::models::distilroberta::DistilRobertaForSequenceClassification;
 pub use crate::models::sbert::SBert;

@@ -4,6 +4,7 @@ pub mod sbert;
 
 pub use self::character_bert::{
     CharacterBertConfig, CharacterBertForSequenceClassification, CharacterBertModel,
+    CharacterIndexer, CharacterMapper, CharacterBertTokenizer,
 };
 pub use self::distilroberta::DistilRobertaForSequenceClassification;
 pub use self::sbert::SBert;

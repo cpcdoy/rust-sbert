@@ -1,9 +1,16 @@
 use std::borrow::Borrow;
+use std::cmp;
 use std::collections::HashMap;
 
 use rust_bert::bert::{BertConfig, BertEncoder, BertEncoderOutput, BertPooler};
 use rust_bert::{Activation, Config, RustBertError};
+
+use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
+use tokenizers::tokenizer::{NormalizedString, PreTokenizer};
+//use tokenizers::tokenizer::normalizer::{OffsetReferential, OffsetType};
+
 use serde::{Deserialize, Serialize};
+
 use tch::nn::Module;
 use tch::{nn, Kind, Tensor};
 
@@ -53,6 +60,291 @@ impl CharacterBertConfig {
             id2label: self.id2label.clone(),
             label2id: self.label2id.clone(),
         }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SpecialTokens {
+    padding_value: i64,
+    max_word_length: i64,
+    max_charset_len: i64,
+    beginning_of_sentence_character: i64, // <begin sentence>
+    bos_token: String,                    // [CLS]
+    end_of_sentence_character: i64,       // <end sentence>
+    eos_token: String,                    // [SEP]
+    beginning_of_word_character: i64,     // <begin word>
+    end_of_word_character: i64,           // <end word>
+    padding_character: i64,               // <padding>
+    pad_token: String,                    // [PAD]
+    mask_character: i64,                  // <mask>
+    mask_token: String,                   // [MASK]
+}
+
+impl Default for SpecialTokens {
+    fn default() -> Self {
+        let max_charset_len = 65536;
+        Self {
+            padding_value: 0,
+            max_word_length: 50,
+            max_charset_len,
+            beginning_of_sentence_character: max_charset_len - 6, // 256  # <begin sentence>
+            bos_token: "[CLS]".to_string(),
+            end_of_sentence_character: max_charset_len - 5, // <end sentence>
+            eos_token: "[SEP]".to_string(),
+            beginning_of_word_character: max_charset_len - 4, // <begin word>
+            end_of_word_character: max_charset_len - 3,       // <end word>
+            padding_character: max_charset_len - 2,           // 260  # <padding>
+            pad_token: "[PAD]".to_string(),
+            mask_character: max_charset_len - 1, // 261 # <mask>
+            mask_token: "[MASK]".to_string(),
+        }
+    }
+}
+
+pub struct CharacterMapper {
+    special_tokens: SpecialTokens,
+}
+
+impl CharacterMapper {
+    pub fn new() -> Self {
+        let special_tokens = SpecialTokens::default();
+
+        Self { special_tokens }
+    }
+
+    pub fn convert_word_to_char_ids<S: AsRef<str>>(&self, word: S) -> Vec<i64> {
+        let special_tokens = &self.special_tokens;
+
+        let char_ids = {
+            if word.as_ref() == special_tokens.bos_token {
+                let beginning_of_sentence_characters = CharacterMapper::make_bos_eos(
+                    special_tokens.beginning_of_sentence_character,
+                    special_tokens.padding_character,
+                    special_tokens.beginning_of_word_character,
+                    special_tokens.end_of_word_character,
+                    special_tokens.max_word_length,
+                );
+                beginning_of_sentence_characters
+            } else if word.as_ref() == special_tokens.eos_token {
+                let end_of_sentence_characters = CharacterMapper::make_bos_eos(
+                    special_tokens.end_of_sentence_character,
+                    special_tokens.padding_character,
+                    special_tokens.beginning_of_word_character,
+                    special_tokens.end_of_word_character,
+                    special_tokens.max_word_length,
+                );
+                end_of_sentence_characters
+            } else if word.as_ref() == special_tokens.mask_token {
+                let mask_characters = CharacterMapper::make_bos_eos(
+                    special_tokens.mask_character,
+                    special_tokens.padding_character,
+                    special_tokens.beginning_of_word_character,
+                    special_tokens.end_of_word_character,
+                    special_tokens.max_word_length,
+                );
+                mask_characters
+            } else if word.as_ref() == special_tokens.pad_token {
+                let pad_characters =
+                    vec![special_tokens.padding_value - 1; special_tokens.max_word_length as usize];
+                pad_characters
+            } else {
+                let word = word.as_ref();
+                let word = word.replace("▂", "");
+                let word = word.replace("▁", "");
+
+                let word_encoded = &word.chars().collect::<Vec<_>>();
+                let trunc_idx = cmp::min(
+                    word_encoded.len(),
+                    (special_tokens.max_word_length - 2) as usize,
+                );
+
+                let word_encoded_trunc = &word_encoded[..trunc_idx];
+
+                let word_utf16_trunc: Vec<i64> = word_encoded_trunc
+                    .to_vec()
+                    .iter()
+                    .map(|c| {
+                        let mut b = [0; 1];
+                        c.encode_utf16(&mut b);
+
+                        b[0] as i64
+                    })
+                    .collect();
+
+                let mut char_ids =
+                    vec![special_tokens.padding_character; special_tokens.max_word_length as usize];
+                char_ids[0] = special_tokens.beginning_of_word_character;
+
+                for (k, chr_id) in word_utf16_trunc.iter().enumerate() {
+                    char_ids[k + 1] = *chr_id;
+                }
+                char_ids[word_utf16_trunc.len() + 1] = special_tokens.end_of_word_character;
+
+                char_ids
+            }
+        };
+
+        char_ids.iter().map(|c| c + 1).collect()
+    }
+
+    // Helpers
+
+    pub fn make_bos_eos(
+        character: i64,
+        padding_character: i64,
+        beginning_of_word_character: i64,
+        end_of_word_character: i64,
+        max_word_length: i64,
+    ) -> Vec<i64> {
+        let mut char_ids = vec![padding_character; max_word_length as usize];
+        char_ids[0] = beginning_of_word_character;
+        char_ids[1] = character;
+        char_ids[2] = end_of_word_character;
+
+        char_ids
+    }
+
+    pub fn pad_sequence_to_length(
+        sequence: Vec<Vec<i64>>,
+        desired_length: i64,
+        default_value: Vec<i64>,
+        padding_on_right: bool,
+    ) -> Vec<Vec<i64>> {
+        let mut padded_sequence = {
+            if padding_on_right {
+                sequence[..desired_length as usize].to_vec()
+            } else {
+                sequence[sequence.len() - desired_length as usize..].to_vec()
+            }
+        };
+
+        let pad_length = (desired_length as usize) - padded_sequence.len();
+
+        let mut values_to_pad = vec![default_value; pad_length];
+
+        let padded_sequence = {
+            if padding_on_right {
+                padded_sequence.extend(values_to_pad);
+                padded_sequence
+            } else {
+                values_to_pad.extend(padded_sequence);
+                values_to_pad
+            }
+        };
+
+        padded_sequence
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+pub struct CharacterIndexer {
+    mapper: CharacterMapper,
+}
+
+impl CharacterIndexer {
+    pub fn new() -> Self {
+        let mapper = CharacterMapper::new();
+
+        Self { mapper }
+    }
+
+    pub fn tokens_to_indices<S: AsRef<str>>(&self, tokens: &[S]) -> Vec<Vec<i64>> {
+        tokens
+            .iter()
+            .map(|token| self.mapper.convert_word_to_char_ids(token))
+            .collect()
+    }
+
+    pub fn default_value_for_padding(&self) -> Vec<i64> {
+        vec![
+            self.mapper.special_tokens.padding_value;
+            self.mapper.special_tokens.max_word_length as usize
+        ]
+    }
+
+    pub fn as_padded_tensor<T, S>(
+        &self,
+        batch: &[T],
+        _as_tensor: bool,
+        maxlen: Option<i64>,
+    ) -> Tensor
+    where
+        T: AsRef<[S]>,
+        S: AsRef<str>,
+    {
+        let maxlen = maxlen.unwrap_or_else(|| {
+            let batch_lens: Vec<usize> = batch.iter().map(|b| b.as_ref().len()).collect();
+
+            *batch_lens.iter().max().unwrap_or_else(|| &0) as i64
+        });
+
+        let batch_indices: Vec<Vec<Vec<i64>>> = batch
+            .iter()
+            .map(|tokens| self.tokens_to_indices(tokens.as_ref()))
+            .collect();
+
+        let padded_batch: Vec<Vec<Vec<i64>>> = batch_indices
+            .iter()
+            .map(|indices| {
+                CharacterMapper::pad_sequence_to_length(
+                    indices.to_vec(),
+                    maxlen,
+                    self.default_value_for_padding(),
+                    true,
+                )
+            })
+            .collect();
+
+        let inner_tensor: Vec<Tensor> = padded_batch.iter().map(|v| Tensor::of_slice2(v)).collect();
+
+        Tensor::stack(&inner_tensor, 0)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+pub struct CharacterBertTokenizer {
+    indexer: CharacterIndexer,
+    pre_tokenizer: BertPreTokenizer,
+}
+
+impl CharacterBertTokenizer {
+    pub fn new() -> Self {
+        let indexer = CharacterIndexer::new();
+        let pre_tokenizer = BertPreTokenizer;
+        Self {
+            indexer,
+            pre_tokenizer,
+        }
+    }
+
+    pub fn tokenize<T, S>(&self, batch: &[T]) -> ()
+    where
+        T: AsRef<[S]>,
+        S: AsRef<str>,
+    {
+        let mut n = NormalizedString::from("指бв说/説, ⟨г⟩, ⟨д⟩, ⟨ж⟩, ⟨з⟩, ⟨к⟩事@@字 zhǐshìzì磨 说/説 has readings *maj > ma > mó 'to grind' and *majs > maH > mò 'grindstone'");
+        n.transform(
+            n.get().to_owned().chars().flat_map(|c| {
+                if (c as usize) > 0x4E00 {
+                    vec![(' ', 0), (c, 1), (' ', 1)]
+                } else {
+                    vec![(c, 0)]
+                }
+            }),
+            0,
+        );
+        let mut pretokenized = n.into();
+        let pre_tokens: Vec<String> = self.pre_tokenizer.pre_tokenize(&mut pretokenized).unwrap().into_iter().map(|(s, o)| s).collect();
+        
+        let tensor = self.indexer.as_padded_tensor(&[&pre_tokens], true, None);
+
+        println!("tensor {:?}", tensor);
+        tensor.print();
+        println!("pretok {:?}", pre_tokens);
     }
 }
 
@@ -538,6 +830,8 @@ impl CharacterBertModel {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+
 pub struct CharacterBertClassificationHead {
     dense: nn::Linear,
     hidden_dropout_prob: f64,
@@ -577,6 +871,8 @@ impl CharacterBertClassificationHead {
         x
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////
 
 pub struct CharacterBertForSequenceClassification {
     character_bert: CharacterBertModel,

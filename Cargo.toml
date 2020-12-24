@@ -27,7 +27,8 @@ strum = "0.20"
 strum_macros = "0.20"
 tch = "0.3"
 thiserror = "1.0"
-tokenizers = "0.10"
+tokenizers = "0.10.1"
+#tokenizers = { git = "https://github.com/huggingface/tokenizers.git" } #, rev="c36ac0bfdf1a24c61afab1c9c44f0a013fed0a7d"}
 torch-sys = "0.3"
 
 [dev-dependencies]
