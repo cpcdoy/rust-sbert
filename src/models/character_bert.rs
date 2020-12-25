@@ -213,8 +213,9 @@ impl CharacterMapper {
         padding_on_right: bool,
     ) -> Vec<Vec<i64>> {
         let mut padded_sequence = {
+            let desired_length = cmp::min(sequence.len(), desired_length as usize);
             if padding_on_right {
-                sequence[..desired_length as usize].to_vec()
+                sequence[..desired_length].to_vec()
             } else {
                 sequence[sequence.len() - desired_length as usize..].to_vec()
             }
@@ -321,36 +322,40 @@ impl CharacterBertTokenizer {
         }
     }
 
-    pub fn tokenize<T, S>(&self, batch: &[T]) -> ()
+    pub fn tokenize<T>(&self, batch: &[T]) -> Tensor
     where
-        T: AsRef<[S]>,
-        S: AsRef<str>,
+        T: AsRef<str>,
     {
-        let mut n = NormalizedString::from("指бв说/説, ⟨г⟩, ⟨д⟩, ⟨ж⟩, ⟨з⟩, ⟨к⟩事@@字 zhǐshìzì磨 说/説 has readings *maj > ma > mó 'to grind' and *majs > maH > mò 'grindstone'");
-        n.transform(
-            n.get().to_owned().chars().flat_map(|c| {
-                if (c as usize) > 0x4E00 {
-                    vec![(' ', 0), (c, 1), (' ', 1)]
-                } else {
-                    vec![(c, 0)]
-                }
-            }),
-            0,
-        );
-        let mut pretokenized = n.into();
-        let pre_tokens: Vec<String> = self
-            .pre_tokenizer
-            .pre_tokenize(&mut pretokenized)
-            .unwrap()
-            .into_iter()
-            .map(|(s, o)| s)
+        let pre_tokens_batch: Vec<_> = batch
+            .iter()
+            .map(|s| {
+                let mut n = NormalizedString::from(s.as_ref());
+                n.transform(
+                    n.get().to_owned().chars().flat_map(|c| {
+                        if (c as usize) > 0x4E00 {
+                            vec![(' ', 0), (c, 1), (' ', 1)]
+                        } else {
+                            vec![(c, 0)]
+                        }
+                    }),
+                    0,
+                );
+                let mut pretokenized = n.into();
+                let pre_tokens: Vec<String> = self
+                    .pre_tokenizer
+                    .pre_tokenize(&mut pretokenized)
+                    .unwrap()
+                    .into_iter()
+                    .map(|(s, _o)| s)
+                    .collect();
+
+                pre_tokens
+            })
             .collect();
 
-        let tensor = self.indexer.as_padded_tensor(&[&pre_tokens], true, None);
+        let tensor = self.indexer.as_padded_tensor(&pre_tokens_batch, true, None);
 
-        println!("tensor {:?}", tensor);
-        tensor.print();
-        println!("pretok {:?}", pre_tokens);
+        tensor
     }
 }
 

@@ -107,13 +107,16 @@ mod tests {
     fn test_character_bert_tokenizer_full() {
         let tok = CharacterBertTokenizer::new();
 
-        let r = tok.tokenize(&[["test", "lol"]]);
+        let r = tok.tokenize(&[
+            "test lol",
+            "指бв说/説, ⟨г⟩, ⟨д⟩, ⟨ж⟩, ⟨з⟩, ⟨к⟩事@@字 zhǐshìzì磨 说/説 has readings *maj > ma > mó 'to grind' and *majs > maH > mò 'grindstone'"]
+        );
 
         println!("indexer as_padded_tensor: {:?}", r);
     }
 
     #[test]
-    fn test_character_bert_model_with_tokenizer() {
+    fn test_character_bert_model_with_indexer() {
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distilcharacteroberta");
@@ -166,5 +169,63 @@ mod tests {
 
         let r = Vec::<Vec<f32>>::from((r * 10000.0).round() / 10000.0);
         assert_eq!(r, [[0.4779, 0.5221], [0.0025, 0.9975]]);
+    }
+
+    #[test]
+    fn test_character_bert_model_with_tokenizer_full() {
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("distilcharacteroberta");
+
+        let device = Device::cuda_if_available();
+
+        println!("Running on device {:?}", device);
+
+        let config_file = home.join("config.json");
+        let weights_file = home.join("model.ot");
+
+        let mut vs = nn::VarStore::new(device);
+        let config = CharacterBertConfig::from_file(config_file);
+        let model = CharacterBertForSequenceClassification::new(&vs.root(), &config);
+        //vs.variables()["classifier.out_proj.bias"].print();
+        // println!("Varstore content before: {:?}", vs.variables());
+        vs.load(weights_file).unwrap();
+        //        let partials = vs.load_partial(weights_file);
+        //        println!("partials: {:?}", partials);
+
+        // println!("Varstore len: {:?}", vs.len());
+        // println!("Varstore content: {:?}", vs.variables());
+        // vs.variables()["classifier.out_proj.bias"].print();
+
+        let _guard = tch::no_grad_guard();
+        let tok = CharacterBertTokenizer::new();
+
+        let input_tensor = tok.tokenize(&[
+            "test lol",
+            "指бв说/説, ⟨г⟩, ⟨д⟩, ⟨ж⟩, ⟨з⟩, ⟨к⟩事@@字 zhǐshìzì磨 说/説 has readings *maj > ma > mó 'to grind' and *majs > maH > mò 'grindstone'"]
+        );
+
+        println!("Input tensor shape: {:?}", input_tensor.size());
+
+        let before = Instant::now();
+        let r = model
+            .forward_t(
+                Some(input_tensor),
+                None,
+                None,
+                None,
+                None,
+                &None,
+                &None,
+                false,
+            )
+            .unwrap();
+
+        println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
+
+        let r = r.logits.softmax(2, Kind::Float).squeeze1(1);
+
+        let r = Vec::<Vec<f32>>::from((r * 10000.0).round() / 10000.0);
+        assert_eq!(r, [[0.9059, 0.0941], [0.9794, 0.0206]]);
     }
 }
