@@ -333,7 +333,7 @@ impl CharacterBertTokenizer {
                 n.transform(
                     n.get().to_owned().chars().flat_map(|c| {
                         if (c as usize) > 0x4E00 {
-                            vec![(' ', 0), (c, 1), (' ', 1)]
+                            vec![(' ', 0), (c, 1), (' ', 2)]
                         } else {
                             vec![(c, 0)]
                         }
@@ -376,7 +376,7 @@ impl Highway {
         for i in 0..num_layers {
             let lin_conf = nn::LinearConfig::default();
             let linear = nn::linear(
-                p.borrow() / i.to_string().as_str(),
+                p.borrow() / i,
                 input_dim,
                 input_dim * 2,
                 lin_conf,
@@ -531,10 +531,6 @@ impl CharacterCNN {
 
         let max_chars_per_token = self.options.max_characters_per_token;
 
-        // let character_embedding = self
-        //     .char_embeddings
-        //     .forward(&character_ids_with_bos_eos.view([-1, max_chars_per_token]));
-
         let character_embedding = Tensor::embedding(
             &self.char_embeddings,
             &character_ids_with_bos_eos.view([-1, max_chars_per_token]),
@@ -639,30 +635,22 @@ impl BertCharacterEmbeddings {
 
         let position_ids = position_ids.unwrap_or_else(|| {
             let position_ids = Tensor::arange(seq_length, (Kind::Int64, input_ids.device()));
-            // println!("position_ids: {:?}", position_ids.size());
-            // println!("input_ids: {:?}", input_ids.size());
             position_ids
                 .unsqueeze(0)
                 .expand_as(&input_ids.slice(2, 0, 1, 1).squeeze1(-1))
         });
-
-        // println!("-1");
 
         // In original implem, but redundant...
         // let token_type_ids =
         //     token_type_ids.unwrap_or_else(|| input_ids.slice(2, 0, 1, 1).zeros_like());
 
         let word_embeddings = self.word_embeddings.forward(input_ids).unwrap();
-        // println!("-2");
         let position_embeddings = self.position_embeddings.forward(&position_ids);
-        // println!("-3");
         let token_type_embeddings = self.token_type_embeddings.forward(&token_type_ids);
-        // println!("-4");
+
         let mut embeddings = word_embeddings + position_embeddings + token_type_embeddings;
         embeddings = self.layer_norm.forward(&embeddings);
-        // println!("-5");
         embeddings = embeddings.dropout(self.hidden_dropout_prob, train);
-        // println!("-6");
 
         Ok(embeddings)
     }
@@ -718,7 +706,6 @@ impl CharacterBertModel {
         encoder_attention_mask: &Option<Tensor>,
         train: bool,
     ) -> Result<CharacterBertModelOutput, RustBertError> {
-        // println!("1");
         let (input_shape, device) = match (&input_ids, &input_embeds) {
             (Some(_), Some(_)) => Err(RustBertError::ValueError(
                 "You cannot specify both input_ds and inputs_embeds at the same time".into(),
@@ -738,7 +725,6 @@ impl CharacterBertModel {
         let token_type_ids =
             token_type_ids.unwrap_or_else(|| Tensor::zeros(&input_shape, (Kind::Int64, device)));
 
-        // println!("2");
         let extended_attention_mask = match attention_mask.dim() {
             3 => attention_mask.unsqueeze(1),
             2 => {
@@ -762,11 +748,9 @@ impl CharacterBertModel {
             ))?,
         };
 
-        // println!("3");
         // Should do this for fp16 compat if needed
         //let extended_attention_mask = extended_attention_mask.to_kind(self.parameters.kind());
         let extended_attention_mask: Tensor = (1.0 - extended_attention_mask) * -10000.0;
-        // (extended_attention_mask.ones_like() - extended_attention_mask) * -10000.0;
 
         // Make broadcastable to [batch_size, num_heads, seq_length, seq_length] for decoder cross_attention
         let encoder_extended_attention_mask: Option<Tensor> =
@@ -806,12 +790,10 @@ impl CharacterBertModel {
 
         let input_ids = input_ids.unwrap();
 
-        // println!("4");
         let embedding_output =
             self.embeddings
                 .forward_t(input_ids, token_type_ids, position_ids, train)?;
 
-        // println!("5");
         let BertEncoderOutput {
             hidden_state,
             all_hidden_states,
@@ -828,10 +810,8 @@ impl CharacterBertModel {
         let hidden_states = all_hidden_states;
         let attentions = all_attentions;
 
-        // println!("6");
         let pooled_output = self.pooler.forward(&sequence_output);
 
-        // println!("7");
         Ok(CharacterBertModelOutput {
             sequence_output,
             pooled_output,
