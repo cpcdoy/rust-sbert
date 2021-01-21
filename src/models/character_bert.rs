@@ -375,12 +375,7 @@ impl Highway {
         let mut layers = Vec::<nn::Linear>::with_capacity(num_layers as usize);
         for i in 0..num_layers {
             let lin_conf = nn::LinearConfig::default();
-            let linear = nn::linear(
-                p.borrow() / i,
-                input_dim,
-                input_dim * 2,
-                lin_conf,
-            );
+            let linear = nn::linear(p.borrow() / i, input_dim, input_dim * 2, lin_conf);
 
             layers.push(linear);
         }
