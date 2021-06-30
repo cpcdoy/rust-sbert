@@ -1,10 +1,10 @@
 # Rust SBert [![Latest Version]][crates.io] [![Latest Doc]][docs.rs] ![Build Status]
 
-[Latest Version]: https://img.shields.io/crates/v/sbert.svg
+[latest version]: https://img.shields.io/crates/v/sbert.svg
 [crates.io]: https://crates.io/crates/sbert
-[Latest Doc]: https://docs.rs/sbert/badge.svg
+[latest doc]: https://docs.rs/sbert/badge.svg
 [docs.rs]: https://docs.rs/sbert
-[Build Status]: https://travis-ci.com/cpcdoy/rust-sbert.svg?branch=master
+[build status]: https://travis-ci.com/cpcdoy/rust-sbert.svg?branch=master
 
 Rust port of [sentence-transformers][] using [rust-bert][] and [tch-rs][].
 
@@ -70,7 +70,7 @@ unzip models/distiluse-base-multilingual-cased.zip -d models/distiluse-base-mult
 
 Then, you need to convert the model in a suitable format (requires [pytorch][]):
 
-``` Bash
+```Bash
 python utils/prepare_distilbert.py models/distiluse-base-multilingual-cased
 ```
 

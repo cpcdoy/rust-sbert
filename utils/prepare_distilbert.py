@@ -5,6 +5,7 @@ import torch
 import subprocess
 from pathlib import Path
 
+
 def convert_to_c_array(target_path, prefix="", suffix=False):
     config_path = str(target_path + '/config.json')
     vocab_path = str(target_path + '/vocab.txt')
@@ -24,10 +25,12 @@ def convert_to_c_array(target_path, prefix="", suffix=False):
     source = str(target_path + '/model.npz')
     target = str(target_path + '/model.ot')
 
-    toml_location = (Path(__file__).resolve() / '..' / '..' / 'Cargo.toml').resolve()
+    toml_location = (Path(__file__).resolve() / '..' /
+                     '..' / 'Cargo.toml').resolve()
 
     subprocess.call(
         ['cargo', 'run', '--bin=convert-tensor', '--manifest-path=%s' % toml_location, '--', source, target])
+
 
 if __name__ == "__main__":
     root = sys.argv[1]
