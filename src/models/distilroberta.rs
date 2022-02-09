@@ -107,8 +107,8 @@ where
             let classification_logits = self
                 .lm_model
                 .forward_t(
-                    Some(batch_tensor),
-                    Some(batch_attention_c),
+                    Some(&batch_tensor),
+                    Some(&batch_attention_c),
                     None,
                     None,
                     None,
