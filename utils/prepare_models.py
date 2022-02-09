@@ -24,8 +24,6 @@ def download_model(url, filename):
     with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
         zip_ref.extractall(model_dir)
 
-    shutil.move(model_dir + "/0_Transformer", model_dir + "/0_DistilBERT")
-
     os.remove(zip_filename)
 
     print("Done.")
