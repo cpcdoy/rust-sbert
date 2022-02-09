@@ -5,7 +5,7 @@ use criterion::black_box;
 use criterion::Criterion;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-use sbert::{DistilRobertaForSequenceClassificationRT, RustTokenizersSentencePiece};
+use sbert::DistilRobertaForSequenceClassificationRT;
 
 fn rand_string(r: &mut impl Rng) -> String {
     (0..(r.gen::<f32>() * 100.0) as usize)

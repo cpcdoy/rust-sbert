@@ -21,7 +21,7 @@ pub struct DenseConfig {
     pub activation_function: Activation,
 }
 
-impl Config<DenseConfig> for DenseConfig {}
+impl Config for DenseConfig {}
 
 pub struct Dense {
     linear: nn::Linear,
