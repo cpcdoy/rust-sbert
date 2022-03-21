@@ -10,7 +10,7 @@ mod tests {
     use tokenizers::normalizers::bert::BertNormalizer;
     use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
     use tokenizers::processors::bert::BertProcessing;
-    use tokenizers::tokenizer;
+    use tokenizers::{tokenizer, Model};
     use torch_sys::dummy_cuda_dependency;
 
     use sbert::Tokenizer as TraitTokenizer;
@@ -78,7 +78,7 @@ mod tests {
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
-            &sbert_model.forward(&texts, BATCH_SIZE).unwrap();
+            let _ = sbert_model.forward(&texts, BATCH_SIZE).unwrap();
         }
         let output = &sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
@@ -88,7 +88,7 @@ mod tests {
             .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
+        assert_eq!(v, [-0.0134, -0.0045, 0.0632, 0.0126, -0.0518]);
     }
 
     #[test]
@@ -116,7 +116,7 @@ mod tests {
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();
         for _ in 0..9 {
-            &sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
+            let _ = sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
         }
         let output = &sbert_model.forward(&texts, BATCH_SIZE).unwrap()[0][..5];
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
@@ -126,7 +126,7 @@ mod tests {
             .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [-0.0227, -0.006, 0.0552, 0.0185, -0.0754]);
+        assert_eq!(v, [-0.0134, -0.0045, 0.0632, 0.0126, -0.0518]);
     }
 
     #[test]
@@ -203,19 +203,19 @@ mod tests {
             .iter()
             .map(|f| (f * 10000.0).round() / 10000.0)
             .collect::<Vec<_>>();
-        assert_eq!(v, [0.033, 0.0469, -0.0579, 0.0181, -0.0693]);
+        assert_eq!(v, [0.0242, 0.0568, -0.0678, 0.0149, -0.0409]);
     }
 
     pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
-        let mut tokenizer = tokenizer::Tokenizer::new(Box::new(
-            WordPiece::from_files(path)
+        let mut tokenizer = tokenizer::Tokenizer::new(
+            WordPiece::from_file(path)
                 .build()
                 .expect("Files not found, run `make test` to download these files"),
-        ));
-        let bert_normalizer = BertNormalizer::new(false, false, false, false);
-        tokenizer.with_normalizer(Box::new(bert_normalizer));
-        tokenizer.with_pre_tokenizer(Box::new(BertPreTokenizer));
-        tokenizer.with_post_processor(Box::new(BertProcessing::new(
+        );
+        let bert_normalizer = BertNormalizer::new(false, false, None, false);
+        tokenizer.with_normalizer(bert_normalizer);
+        tokenizer.with_pre_tokenizer(BertPreTokenizer);
+        let bert_processing = BertProcessing::new(
             (
                 String::from("[SEP]"),
                 tokenizer.get_model().token_to_id("[SEP]").unwrap(),
@@ -224,7 +224,8 @@ mod tests {
                 String::from("[CLS]"),
                 tokenizer.get_model().token_to_id("[CLS]").unwrap(),
             ),
-        )));
+        );
+        tokenizer.with_post_processor(bert_processing);
 
         tokenizer
     }
@@ -247,7 +248,7 @@ mod tests {
         let input_1 = input.clone();
         let before = Instant::now();
         let tokenized_input =
-            tokenizer.encode_list(input_1, 128, &TruncationStrategy::LongestFirst, 0);
+            tokenizer.encode_list(&input_1, 128, &TruncationStrategy::LongestFirst, 0);
 
         let max_len = tokenized_input
             .iter()

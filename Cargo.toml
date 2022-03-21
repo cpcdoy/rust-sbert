@@ -8,38 +8,34 @@ repository = "https://github.com/cpcdoy/rust-sbert"
 keywords = ["nlp", "embedding", "bert", "sbert", "transformers"]
 license = "Apache-2.0"
 readme = "README.md"
-include = [
-    "src/",
-    "Cargo.toml",
-    "build.rs",
-]
+include = ["src/", "Cargo.toml", "build.rs"]
 
 [dependencies]
 lazy_static = "1.4"
 log = "0.4"
 num_cpus = "1.13"
-prost = "0.6"
+prost = "0.9"
 rayon = "1.5"
-rust-bert = { git="https://github.com/guillaume-be/rust-bert", rev="706169a" }
-rust_tokenizers = "6.0"
+rust-bert = "0.17"
+rust_tokenizers = "7.0"
 serde = "1.0"
-strum = "0.20"
-strum_macros = "0.20"
-tch = "0.3"
+strum = "0.23"
+strum_macros = "0.23"
+tch = "0.6"
 thiserror = "1.0"
-tokenizers = "0.10"
-torch-sys = "0.3"
+tokenizers = "0.11"
+torch-sys = "0.6"
 
 [dev-dependencies]
 criterion = "0.3"
-rand = "0.7"
+rand = "0.8"
 
 [features]
 doc-only = ["tch/doc-only"]
 all-tests = []
 
 [package.metadata.docs.rs]
-features = [ "doc-only" ]
+features = ["doc-only"]
 
 [lib]
 name = "sbert"

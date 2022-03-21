@@ -28,12 +28,9 @@ impl Tokenizer for RustTokenizers {
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::tokenizer::Tokenizer;
 
-        let tokenized_input = self.tokenizer.encode_list(
-            input.iter().map(|v| v.as_ref()).collect::<Vec<_>>(),
-            128,
-            &TruncationStrategy::LongestFirst,
-            0,
-        );
+        let tokenized_input =
+            self.tokenizer
+                .encode_list(input, 128, &TruncationStrategy::LongestFirst, 0);
 
         let max_len = tokenized_input
             .iter()

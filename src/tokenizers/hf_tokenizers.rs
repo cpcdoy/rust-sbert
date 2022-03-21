@@ -5,11 +5,11 @@ use tokenizers::models::wordpiece::WordPiece;
 use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
 use tokenizers::processors::bert::BertProcessing;
-use tokenizers::tokenizer;
 use tokenizers::tokenizer::{
     EncodeInput, PaddingDirection, PaddingParams, PaddingStrategy, TruncationParams,
     TruncationStrategy,
 };
+use tokenizers::{tokenizer, Model};
 
 use crate::tokenizers::Tokenizer;
 use crate::Error;
@@ -23,15 +23,15 @@ impl Tokenizer for HFTokenizer {
     where
         Self: Sized,
     {
-        let mut tokenizer = tokenizer::Tokenizer::new(Box::new(
-            WordPiece::from_files(&path.into().to_string_lossy())
+        let mut tokenizer = tokenizer::Tokenizer::new(
+            WordPiece::from_file(&path.into().to_string_lossy())
                 .build()
                 .expect("Files not found."),
-        ));
-        let bert_normalizer = BertNormalizer::new(false, false, false, false);
-        tokenizer.with_normalizer(Box::new(bert_normalizer));
-        tokenizer.with_pre_tokenizer(Box::new(BertPreTokenizer));
-        tokenizer.with_post_processor(Box::new(BertProcessing::new(
+        );
+        let bert_normalizer = BertNormalizer::new(false, false, None, false);
+        tokenizer.with_normalizer(bert_normalizer);
+        tokenizer.with_pre_tokenizer(BertPreTokenizer);
+        let bert_processing = BertProcessing::new(
             (
                 String::from("[SEP]"),
                 tokenizer.get_model().token_to_id("[SEP]").unwrap(),
@@ -40,7 +40,8 @@ impl Tokenizer for HFTokenizer {
                 String::from("[CLS]"),
                 tokenizer.get_model().token_to_id("[CLS]").unwrap(),
             ),
-        )));
+        );
+        tokenizer.with_post_processor(bert_processing);
 
         let strategy = PaddingStrategy::BatchLongest;
         let direction = PaddingDirection::Right;
@@ -50,6 +51,7 @@ impl Tokenizer for HFTokenizer {
         tokenizer.with_padding(Some(PaddingParams {
             strategy,
             direction,
+            pad_to_multiple_of: None,
             pad_id,
             pad_type_id,
             pad_token,

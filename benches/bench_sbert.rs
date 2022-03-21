@@ -10,6 +10,7 @@ use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
 use tokenizers::processors::bert::BertProcessing;
 use tokenizers::tokenizer;
+use tokenizers::Model;
 
 use sbert::{SBertHF, SBertRT};
 
@@ -75,15 +76,15 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
 }
 
 pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
-    let mut tokenizer = tokenizer::Tokenizer::new(Box::new(
-        WordPiece::from_files(path)
+    let mut tokenizer = tokenizer::Tokenizer::new(
+        WordPiece::from_file(path)
             .build()
             .expect("Files not found, run `make test` to download these files"),
-    ));
-    let bert_normalizer = BertNormalizer::new(false, false, false, false);
-    tokenizer.with_normalizer(Box::new(bert_normalizer));
-    tokenizer.with_pre_tokenizer(Box::new(BertPreTokenizer));
-    tokenizer.with_post_processor(Box::new(BertProcessing::new(
+    );
+    let bert_normalizer = BertNormalizer::new(false, false, None, false);
+    tokenizer.with_normalizer(bert_normalizer);
+    tokenizer.with_pre_tokenizer(BertPreTokenizer);
+    let bert_processing = BertProcessing::new(
         (
             String::from("[SEP]"),
             tokenizer.get_model().token_to_id("[SEP]").unwrap(),
@@ -92,7 +93,8 @@ pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
             String::from("[CLS]"),
             tokenizer.get_model().token_to_id("[CLS]").unwrap(),
         ),
-    )));
+    );
+    tokenizer.with_post_processor(bert_processing);
 
     tokenizer
 }
@@ -129,7 +131,7 @@ fn bench_tokenizers(c: &mut Criterion) {
 
     let rt_bench = || {
         let tokenized_input = tokenizer_rust_tokenizers.encode_list(
-            texts.clone(),
+            &texts,
             128,
             &TruncationStrategy::LongestFirst,
             0,
