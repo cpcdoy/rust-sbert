@@ -6,8 +6,8 @@ use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
 use tokenizers::processors::bert::BertProcessing;
 use tokenizers::tokenizer::{
-    EncodeInput, PaddingDirection, PaddingParams, PaddingStrategy, TruncationParams,
-    TruncationStrategy, TruncationDirection
+    EncodeInput, PaddingDirection, PaddingParams, PaddingStrategy, TruncationDirection,
+    TruncationParams, TruncationStrategy,
 };
 use tokenizers::{tokenizer, Model};
 
@@ -65,7 +65,7 @@ impl Tokenizer for HFTokenizer {
             max_length,
             stride,
             strategy,
-            direction
+            direction,
         }));
 
         Ok(Self { tokenizer })
