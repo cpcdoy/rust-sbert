@@ -6,8 +6,8 @@ use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
 use tokenizers::processors::bert::BertProcessing;
 use tokenizers::tokenizer::{
-    EncodeInput, PaddingDirection, PaddingParams, PaddingStrategy, TruncationParams,
-    TruncationStrategy,
+    EncodeInput, PaddingDirection, PaddingParams, PaddingStrategy, TruncationDirection,
+    TruncationParams, TruncationStrategy,
 };
 use tokenizers::{tokenizer, Model};
 
@@ -60,10 +60,12 @@ impl Tokenizer for HFTokenizer {
         let max_length = 128;
         let stride = 0;
         let strategy = TruncationStrategy::LongestFirst;
+        let direction = TruncationDirection::Right;
         tokenizer.with_truncation(Some(TruncationParams {
             max_length,
             stride,
             strategy,
+            direction,
         }));
 
         Ok(Self { tokenizer })
