@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -41,7 +42,7 @@ where
         let mut vs = nn::VarStore::new(device);
 
         let tokenizer = Arc::new(T::new(&root)?);
-        let lm_model = RobertaForSequenceClassification::new(&vs.root(), &config);
+        let lm_model = RobertaForSequenceClassification::new(&vs.root(), &config).unwrap();
 
         vs.load(weights_file)?;
 
@@ -116,9 +117,9 @@ where
                 )
                 .logits;
 
-            let normalized_logits = classification_logits.softmax(1, classification_logits.kind());
+            let normalized_logits: Tensor = classification_logits.softmax(1, classification_logits.kind());
 
-            batch_tensors.extend(Vec::<Embeddings>::from(normalized_logits));
+            batch_tensors.extend(Vec::<Embeddings>::try_from(normalized_logits).unwrap());
         }
 
         // Sort results

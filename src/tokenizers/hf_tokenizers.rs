@@ -96,7 +96,7 @@ impl Tokenizer for HFTokenizer {
         let attention_mask = encoding
             .iter()
             .map(|input| {
-                Tensor::of_slice(
+                Tensor::from_slice(
                     &input
                         .get_ids()
                         .iter()
@@ -112,7 +112,7 @@ impl Tokenizer for HFTokenizer {
         let tokenized_input = encoding
             .into_iter()
             .map(|input| {
-                Tensor::of_slice(
+                Tensor::from_slice(
                     &input
                         .get_ids()
                         .iter()

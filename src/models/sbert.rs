@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -127,7 +128,7 @@ where
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);
 
-            batch_tensors.extend(Vec::<Embeddings>::from(linear_tanh));
+            batch_tensors.extend(Vec::<Embeddings>::try_from(linear_tanh).unwrap());
         }
 
         // Sort results
@@ -214,7 +215,7 @@ where
             let mean_pool = self.pooling.forward(&embeddings, &batch_attention_c);
             let linear_tanh = self.dense.forward(&mean_pool);
 
-            batch_tensors.extend(Vec::<Embeddings>::from(linear_tanh));
+            batch_tensors.extend(Vec::<Embeddings>::try_from(linear_tanh).unwrap());
 
             let attention = attention.ok_or_else(|| Error::Encoding("No attention"))?;
             for i in 0..batch_len as i64 {
@@ -229,7 +230,7 @@ where
                             .slice(1, head as i64, head as i64 + 1, 1)
                             .squeeze();
 
-                        let head_att = att::Attention2D::from(att_slice);
+                        let head_att = att::Attention2D::try_from(att_slice).unwrap();
                         heads_att.push(head_att);
                     }
                     layers_att.push(heads_att);

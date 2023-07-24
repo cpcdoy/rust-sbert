@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::env;
     use std::path::PathBuf;
     use std::time::Instant;
@@ -74,14 +75,14 @@ mod tests {
             .collect::<Vec<_>>();
 
         let ans1 = vec![-1.057, 1.993];
-        let ans1_softmax = Vec::<f32>::from(
-            (Tensor::of_slice(&ans1).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
-        );
+        let ans1_softmax = Vec::<f32>::try_from(
+            (Tensor::from_slice(&ans1).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
+        ).unwrap();
 
         let ans2 = vec![3.055, -2.810];
-        let ans2_softmax = Vec::<f32>::from(
-            (Tensor::of_slice(&ans2).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
-        );
+        let ans2_softmax = Vec::<f32>::try_from(
+            (Tensor::from_slice(&ans2).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
+        ).unwrap();
 
         assert_eq!(v, ans1_softmax);
         assert_eq!(v2, ans2_softmax);

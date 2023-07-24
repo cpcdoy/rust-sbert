@@ -71,7 +71,7 @@ impl Tokenizer for RustTokenizersSentencePiece {
         let attention_mask = tokenized_input
             .iter()
             .map(|input| {
-                Tensor::of_slice(
+                Tensor::from_slice(
                     &input
                         .iter()
                         .map(|e| {
@@ -88,7 +88,7 @@ impl Tokenizer for RustTokenizersSentencePiece {
 
         let tokenized_input = tokenized_input
             .into_iter()
-            .map(|input| Tensor::of_slice(&(input)))
+            .map(|input| Tensor::from_slice(&(input)))
             .collect::<Vec<_>>();
         (tokenized_input, attention_mask)
     }
