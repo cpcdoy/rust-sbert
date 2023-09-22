@@ -1,8 +1,8 @@
-ARG RUST_VER=1.43.1
+ARG RUST_VER=1.72.0
 ARG TARGET=x86_64-unknown-linux-gnu
-ARG TORCH_VER=1.6.0
+ARG TORCH_VER=2.0.0
 
-FROM python:3.8-slim
+FROM python:3.11-slim
 
 ARG HTTP_PROXY
 ARG RUST_VER
@@ -30,6 +30,6 @@ RUN pip install torch==${TORCH_VER}+cpu -f https://download.pytorch.org/whl/torc
 COPY Cargo.toml Cargo.lock ./
 COPY src/bin ./src/bin
 
-RUN touch src/lib.rs && cargo build --bin=convert-tensor
+RUN touch src/lib.rs && LIBTORCH_USE_PYTORCH=1 cargo build --bin=convert-tensor
 
 COPY utils/prepare_distilbert.py ./
