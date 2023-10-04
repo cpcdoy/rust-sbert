@@ -1,0 +1,33 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install libtorch
+      run: |
+        wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcpu.zip
+        unzip libtorch-cxx11-abi-shared-with-deps-2.0.1+cpu.zip
+        mv libtorch /opt/
+      shell: bash
+    - name: Set LIBTORCH environment variable
+      run: echo "LIBTORCH=/opt/libtorch" >> $GITHUB_ENV
+    - name: Set LIBTORCH_INCLUDE environment variable
+      run: echo "LIBTORCH_INCLUDE=/opt/libtorch" >> $GITHUB_ENV
+    - name: Set LIBTORCH_LIB environment variable
+      run: echo "LIBTORCH_LIB=/opt/libtorch" >> $GITHUB_ENV
+    - name: Set LD_LIBRARY_PATH environment variable
+      run: echo "LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    - name: Build
+      run: cargo build --verbose
