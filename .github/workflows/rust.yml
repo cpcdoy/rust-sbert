@@ -31,3 +31,31 @@ jobs:
       run: echo "LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
     - name: Build
       run: cargo build --verbose
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.8' 
+    - name: Install libtorch
+      run: |
+        wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcpu.zip
+        unzip libtorch-cxx11-abi-shared-with-deps-2.0.1+cpu.zip
+        mv libtorch /opt/
+      shell: bash
+    - name: Set LIBTORCH environment variable
+      run: echo "LIBTORCH=/opt/libtorch" >> $GITHUB_ENV
+    - name: Set LIBTORCH_INCLUDE environment variable
+      run: echo "LIBTORCH_INCLUDE=/opt/libtorch" >> $GITHUB_ENV
+    - name: Set LIBTORCH_LIB environment variable
+      run: echo "LIBTORCH_LIB=/opt/libtorch" >> $GITHUB_ENV
+    - name: Set LD_LIBRARY_PATH environment variable
+      run: echo "LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    - name: preparation
+      run: |
+        pip3 install -r ./utils/requirements.txt
+        python3 ./utils/prepare_models.py
+    - name: Run Tests
+      run: cargo test --verbose -- --skip test_sbert_encode_attention --skip test_distilroberta_for_classification_rust_tokenizers_sentencepiece --skip test_rust_tokenizers_sentencepiece
