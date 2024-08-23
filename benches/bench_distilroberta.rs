@@ -19,7 +19,7 @@ fn bench_distilroberta_rust_tokenizers_sentencepiece(c: &mut Criterion) {
     home.push("distilroberta_toxicity");
 
     println!("Loading distilroberta ...");
-    let sbert_model = DistilRobertaForSequenceClassificationRT::new(home).unwrap();
+    let sbert_model = DistilRobertaForSequenceClassificationRT::new(home, None).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
     c.bench_function(

@@ -26,15 +26,14 @@ impl Config for DenseConfig {}
 pub struct Dense {
     linear: nn::Linear,
     _conf: DenseConfig,
+
 }
 
 impl Dense {
-    pub fn new<P: Into<PathBuf>>(root: P) -> Result<Dense, Error> {
+    pub fn new<P: Into<PathBuf>>(root: P, device: Device) -> Result<Dense, Error> {
         let dense_dir = root.into().join("2_Dense");
         log::info!("Loading conf {:?}", dense_dir);
 
-        let device = Device::cuda_if_available();
-        //let device = Device::Cpu;
         let mut vs_dense = nn::VarStore::new(device);
 
         let init_conf = nn::LinearConfig {

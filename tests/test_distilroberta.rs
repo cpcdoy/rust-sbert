@@ -49,7 +49,7 @@ mod tests {
 
         println!("Loading distilroberta ...");
         let before = Instant::now();
-        let sbert_model = DistilRobertaForSequenceClassificationRT::new(home).unwrap();
+        let sbert_model = DistilRobertaForSequenceClassificationRT::new(home, None).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
         let mut texts = Vec::new();

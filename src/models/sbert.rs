@@ -27,7 +27,7 @@ impl<T> SBert<T>
 where
     T: Tokenizer + Send + Sync,
 {
-    pub fn new<P>(root: P) -> Result<Self, Error>
+    pub fn new<P>(root: P, device: Option<Device>) -> Result<Self, Error>
     where
         P: Into<PathBuf>,
     {
@@ -44,11 +44,13 @@ where
         let nb_layers = config.n_layers as usize;
         let nb_heads = config.n_heads as usize;
 
-        let pooling = Pooling::new(root.clone());
-        let dense = Dense::new(root)?;
-
-        let device = Device::cuda_if_available();
+        let device = device.unwrap_or(Device::cuda_if_available());
         log::info!("Using device {:?}", device);
+
+        let pooling = Pooling::new(root.clone());
+        let dense = Dense::new(root, device)?;
+
+
 
         let mut vs = nn::VarStore::new(device);
 
