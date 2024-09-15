@@ -16,7 +16,7 @@ log = "0.4"
 num_cpus = "1.13"
 prost = "0.9"
 rayon = "1.5"
-rust-bert = { git = "https://github.com/guillaume-be/rust-bert", rev = "29f9a7a" }
+rust-bert = { git = "https://github.com/guillaume-be/rust-bert", rev = "29f9a7a", default-features = false }
 rust_tokenizers = "7.0"
 serde = "1.0"
 strum = "0.23"
