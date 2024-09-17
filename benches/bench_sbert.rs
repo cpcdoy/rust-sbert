@@ -26,7 +26,7 @@ fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     home.push("distiluse-base-multilingual-cased");
 
     println!("Loading sbert ...");
-    let sbert_model = SBertRT::new(home).unwrap();
+    let sbert_model = SBertRT::new(home, None).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
     c.bench_function("Encode batch, safe sbert rust tokenizer, total 1", |b| {
@@ -53,7 +53,7 @@ fn bench_sbert_hugging_face_tokenizers(c: &mut Criterion) {
     home.push("distiluse-base-multilingual-cased");
 
     println!("Loading sbert ...");
-    let sbert_model = SBertHF::new(home).unwrap();
+    let sbert_model = SBertHF::new(home, None).unwrap();
 
     let text = "TTThis player needs tp be reported lolz.";
     c.bench_function(

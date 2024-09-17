@@ -23,7 +23,7 @@ impl<T> DistilRobertaForSequenceClassification<T>
 where
     T: Tokenizer + Send + Sync,
 {
-    pub fn new<P>(root: P) -> Result<Self, Error>
+    pub fn new<P>(root: P, device: Option<Device>) -> Result<Self, Error>
     where
         P: Into<PathBuf>,
     {
@@ -36,7 +36,7 @@ where
 
         let config = BertConfig::from_file(&config_file);
 
-        let device = Device::cuda_if_available();
+        let device = device.unwrap_or(Device::cuda_if_available());
         log::info!("Using device {:?}", device);
 
         let mut vs = nn::VarStore::new(device);

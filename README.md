@@ -33,10 +33,10 @@ You can use different versions of the models that use different tokenizers:
 
 ```Rust
 // To use Hugging Face tokenizer
-let sbert_model = SBertHF::new(home.to_str().unwrap());
+let sbert_model = SBertHF::new(home.to_str().unwrap(), None);
 
 // To use Rust-tokenizers
-let sbert_model = SBertRT::new(home.to_str().unwrap());
+let sbert_model = SBertRT::new(home.to_str().unwrap(), None);
 ```
 
 Now, you can encode your sentences:

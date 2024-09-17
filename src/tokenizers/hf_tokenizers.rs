@@ -61,7 +61,7 @@ impl Tokenizer for HFTokenizer {
         let stride = 0;
         let strategy = TruncationStrategy::LongestFirst;
         let direction = TruncationDirection::Right;
-        tokenizer.with_truncation(Some(TruncationParams {
+        let _ = tokenizer.with_truncation(Some(TruncationParams {
             max_length,
             stride,
             strategy,
