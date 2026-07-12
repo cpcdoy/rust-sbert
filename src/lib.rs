@@ -1,5 +1,6 @@
-pub mod layers;
+pub mod layers; // deprecated re-export shim
 pub mod models;
+pub mod modules;
 pub mod tokenizers;
 
 use rust_bert::RustBertError;
@@ -8,7 +9,15 @@ use tch::TchError;
 use thiserror::Error;
 
 pub use crate::models::distilroberta::DistilRobertaForSequenceClassification;
-pub use crate::models::sbert::SBert;
+pub use crate::models::sbert::SentenceTransformer;
+// Backward-compat: existing code refers to `SBert<T>`, `SBertRT`, `SBertHF`.
+// The underlying type is now `SentenceTransformer<T>`; this alias keeps
+// every prior call site compiling without changes.
+pub use crate::models::sbert::SentenceTransformer as SBert;
+pub use crate::modules::{
+    manifest, transformer, BertBackend, Dense, DistilBertBackend, Features, Module, Normalize,
+    Pooling, TransformerBackend, TransformerOutput,
+};
 pub use crate::tokenizers::{HFTokenizer, RustTokenizers, RustTokenizersSentencePiece, Tokenizer};
 
 pub mod att {
@@ -21,8 +30,8 @@ pub mod att {
 pub type Embeddings = Vec<f32>;
 pub type Attentions = Vec<att::Layers>;
 
-pub type SBertRT = SBert<RustTokenizers>;
-pub type SBertHF = SBert<HFTokenizer>;
+pub type SBertRT = SentenceTransformer<RustTokenizers>;
+pub type SBertHF = SentenceTransformer<HFTokenizer>;
 pub type DistilRobertaForSequenceClassificationRT =
     DistilRobertaForSequenceClassification<RustTokenizersSentencePiece>;
 

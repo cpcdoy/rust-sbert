@@ -230,6 +230,48 @@ mod tests {
         tokenizer
     }
 
+    /// Regression test for the BERT backend (e.g. `sentence-transformers/all-MiniLM-L6-v2`).
+    ///
+    /// Ignored by default because it requires the model files to be present at
+    /// `models/all-MiniLM-L6-v2/`.
+    /// ```
+    #[test]
+    #[ignore]
+    fn test_bert_backend_minilm() {
+        unsafe {
+            dummy_cuda_dependency();
+        } // Windows Hack
+
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("all-MiniLM-L6-v2");
+
+        println!(
+            "Loading SentenceTransformer (BERT backend) from {} ...",
+            home.display()
+        );
+        let before = Instant::now();
+        let model = SBertRT::new(home.clone(), None).unwrap();
+        println!("Loaded in {:.2?}", before.elapsed());
+
+        let sentence = "Hello world!".to_string();
+        let sentences = vec![sentence];
+        let output = model.forward(&sentences, BATCH_SIZE).unwrap();
+        let emb = &output[0];
+
+        // all-MiniLM-L6-v2 produces 384-dim sentence embeddings.
+        assert_eq!(emb.len(), 384, "MiniLM-L6-v2 embedding must be 384-dim");
+
+        let norm: f32 = emb.iter().map(|v| v * v).sum::<f32>().sqrt();
+        assert!(norm > 0.0, "embedding must be non-zero");
+        println!(
+            "MiniLM-L6-v2 OK: dim={}, L2 norm={:.4}, first 5 = {:?}",
+            emb.len(),
+            norm,
+            &emb[..5.min(emb.len())]
+        );
+    }
+
     #[test]
     fn test_tok() {
         let mut root: PathBuf = env::current_dir().unwrap();
