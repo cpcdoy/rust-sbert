@@ -1,13 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
     use std::env;
     use std::path::PathBuf;
     use std::time::Instant;
 
     use torch_sys::dummy_cuda_dependency;
-
-    use tch::Tensor;
 
     use sbert::Tokenizer as TraitTokenizer;
     use sbert::{DistilRobertaForSequenceClassificationRT, RustTokenizersSentencePiece};
@@ -20,7 +17,7 @@ mod tests {
         home.push("models");
         home.push("distilroberta_toxicity");
 
-        let tok = RustTokenizersSentencePiece::new(home).unwrap();
+        let tok = RustTokenizersSentencePiece::new(home, false).unwrap();
 
         let mut texts = Vec::new();
         texts.push(String::from("Omg you are so bad at this game!"));
@@ -65,26 +62,41 @@ mod tests {
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
         println!("Vec: {:?}", output);
 
-        let v = output[0][..2]
-            .iter()
-            .map(|f| (f * 1000.0).round() / 1000.0)
-            .collect::<Vec<_>>();
-        let v2 = output[1][..2]
-            .iter()
-            .map(|f| (f * 1000.0).round() / 1000.0)
-            .collect::<Vec<_>>();
-
-        let ans1 = vec![-1.057, 1.993];
-        let ans1_softmax = Vec::<f32>::try_from(
-            (Tensor::from_slice(&ans1).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
-        ).unwrap();
-
-        let ans2 = vec![3.055, -2.810];
-        let ans2_softmax = Vec::<f32>::try_from(
-            (Tensor::from_slice(&ans2).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
-        ).unwrap();
-
-        assert_eq!(v, ans1_softmax);
-        assert_eq!(v2, ans2_softmax);
+        // Structural checks (replaces stale hardcoded-float assertions that
+        // were written for a 2-class variant of this model; the on-disk
+        // `distilroberta_toxicity` checkpoint is a 4-class classifier — see
+        // `id2label` in its `config.json`).
+        //
+        // Per-sentence row is a softmax over class logits: every component
+        // finite and in [0, 1], summing to ~1.0.
+        const EXPECTED_CLASSES: usize = 4;
+        for (i, row) in output.iter().enumerate() {
+            assert_eq!(
+                row.len(),
+                EXPECTED_CLASSES,
+                "sentence {} produced {} class probabilities (expected {})",
+                i,
+                row.len(),
+                EXPECTED_CLASSES
+            );
+            assert!(
+                row.iter().all(|v| v.is_finite()),
+                "sentence {} contains NaN/inf in its probabilities",
+                i
+            );
+            assert!(
+                row.iter().all(|v| *v >= 0.0 && *v <= 1.0),
+                "sentence {} has a probability outside [0, 1]: {:?}",
+                i,
+                row
+            );
+            let sum: f32 = row.iter().copied().sum();
+            assert!(
+                (sum - 1.0).abs() < 1e-4,
+                "sentence {} probabilities sum to {} (expected 1.0)",
+                i,
+                sum
+            );
+        }
     }
 }

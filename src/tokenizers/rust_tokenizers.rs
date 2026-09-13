@@ -12,11 +12,17 @@ pub struct RustTokenizers {
 }
 
 impl Tokenizer for RustTokenizers {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool) -> Result<Self, Error>
     where
         Self: Sized,
     {
-        let tokenizer = BertTokenizer::from_file(&path.into().to_string_lossy(), false, false)?;
+        // strip_accents follows do_lower_case, mirroring HF's BertTokenizer
+        // default (tokenizer_config.json strip_accents: null).
+        let tokenizer = BertTokenizer::from_file(
+            &path.into().to_string_lossy(),
+            do_lower_case,
+            do_lower_case,
+        )?;
 
         Ok(Self { tokenizer })
     }

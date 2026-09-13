@@ -2,7 +2,7 @@ pub mod distilroberta;
 pub mod sbert;
 
 pub use self::distilroberta::DistilRobertaForSequenceClassification;
-pub use self::sbert::SBert;
+pub use self::sbert::{SentenceTransformer, SentenceTransformer as SBert};
 
 // Utils
 pub fn pad_sort<O: Ord>(arr: &[O]) -> Vec<usize> {

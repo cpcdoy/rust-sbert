@@ -14,7 +14,7 @@ pub struct RustTokenizersSentencePiece {
 }
 
 impl Tokenizer for RustTokenizersSentencePiece {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(path: P, _do_lower_case: bool) -> Result<Self, Error>
     where
         Self: Sized,
     {
