@@ -17,7 +17,7 @@ mod tests {
         home.push("models");
         home.push("distilroberta_toxicity");
 
-        let tok = RustTokenizersSentencePiece::new(home).unwrap();
+        let tok = RustTokenizersSentencePiece::new(home, false).unwrap();
 
         let mut texts = Vec::new();
         texts.push(String::from("Omg you are so bad at this game!"));

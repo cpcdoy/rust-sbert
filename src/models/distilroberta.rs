@@ -41,7 +41,7 @@ where
 
         let mut vs = nn::VarStore::new(device);
 
-        let tokenizer = Arc::new(T::new(&root)?);
+        let tokenizer = Arc::new(T::new(&root, false)?);
         let lm_model = RobertaForSequenceClassification::new(&vs.root(), &config).unwrap();
 
         vs.load(weights_file)?;

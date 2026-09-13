@@ -36,7 +36,7 @@ mod tests {
         home.push("0_DistilBERT");
 
         let vocab_file = home.join("vocab.txt");
-        let tok = HFTokenizer::new(&vocab_file).unwrap();
+        let tok = HFTokenizer::new(&vocab_file, false).unwrap();
 
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));

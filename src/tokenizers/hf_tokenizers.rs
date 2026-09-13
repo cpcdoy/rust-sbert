@@ -19,7 +19,7 @@ pub struct HFTokenizer {
 }
 
 impl Tokenizer for HFTokenizer {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool) -> Result<Self, Error>
     where
         Self: Sized,
     {
@@ -28,7 +28,9 @@ impl Tokenizer for HFTokenizer {
                 .build()
                 .expect("Files not found."),
         );
-        let bert_normalizer = BertNormalizer::new(false, false, None, false);
+        // strip_accents left None — the tokenizers crate defaults it to the
+        // lowercase flag, matching HF's BertTokenizer behavior.
+        let bert_normalizer = BertNormalizer::new(false, false, None, do_lower_case);
         tokenizer.with_normalizer(bert_normalizer);
         tokenizer.with_pre_tokenizer(BertPreTokenizer);
         let bert_processing = BertProcessing::new(

@@ -110,7 +110,29 @@ where
         let mut vs = nn::VarStore::new(device);
         let (transformer, vocab_dir) =
             transformer_mod::load(&transformer_dir, &vs.root(), device)?;
-        let tokenizer = Arc::new(T::new(&vocab_dir.join("vocab.txt"))?);
+
+        // `do_lower_case` is read from the checkpoint's tokenizer_config.json
+        // (the transformer subdir first, then the model root). It MUST match the
+        // shipped vocab: all-MiniLM-L6-v2's vocab is lowercase-only, so
+        // tokenizing cased text with lowercase=false maps every capitalized
+        // word to [UNK] — distinct inputs ("Tech. root" vs "Browsers. root")
+        // collapse to byte-identical embeddings. Absent config/field → false
+        // (conservative: cased vocabs like distiluse must not be folded).
+        let tokenizer_config_path = [&transformer_dir, &root]
+            .iter()
+            .map(|dir| dir.join("tokenizer_config.json"))
+            .find(|p| p.exists());
+        let do_lower_case = tokenizer_config_path
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .and_then(|v| v.get("do_lower_case").and_then(|b| b.as_bool()))
+            .unwrap_or(false);
+        log::info!(
+            "tokenizer_config.json do_lower_case = {}",
+            do_lower_case
+        );
+
+        let tokenizer = Arc::new(T::new(&vocab_dir.join("vocab.txt"), do_lower_case)?);
 
         // Load the transformer weights AFTER the VarStore paths have been
         // wired up by the backend constructor.
