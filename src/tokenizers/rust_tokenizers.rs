@@ -9,10 +9,11 @@ use crate::Error;
 
 pub struct RustTokenizers {
     tokenizer: BertTokenizer,
+    max_seq_length: usize,
 }
 
 impl Tokenizer for RustTokenizers {
-    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool, max_seq_length: usize) -> Result<Self, Error>
     where
         Self: Sized,
     {
@@ -24,7 +25,10 @@ impl Tokenizer for RustTokenizers {
             do_lower_case,
         )?;
 
-        Ok(Self { tokenizer })
+        Ok(Self {
+            tokenizer,
+            max_seq_length,
+        })
     }
 
     fn pre_tokenize<S: AsRef<str>>(&self, _input: &[S]) -> Vec<Vec<String>> {
@@ -34,9 +38,9 @@ impl Tokenizer for RustTokenizers {
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::tokenizer::Tokenizer;
 
-        let tokenized_input =
-            self.tokenizer
-                .encode_list(input, 128, &TruncationStrategy::LongestFirst, 0);
+        let tokenized_input = self
+            .tokenizer
+            .encode_list(input, self.max_seq_length, &TruncationStrategy::LongestFirst, 0);
 
         let max_len = tokenized_input
             .iter()

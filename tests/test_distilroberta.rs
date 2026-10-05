@@ -17,7 +17,7 @@ mod tests {
         home.push("models");
         home.push("distilroberta_toxicity");
 
-        let tok = RustTokenizersSentencePiece::new(home, false).unwrap();
+        let tok = RustTokenizersSentencePiece::new(home, false, 128).unwrap();
 
         let mut texts = Vec::new();
         texts.push(String::from("Omg you are so bad at this game!"));
@@ -45,6 +45,23 @@ mod tests {
         home.push("distilroberta_toxicity");
 
         println!("Loading distilroberta ...");
+
+        // The expected class count is read from the checkpoint's own
+        // `id2label` mapping instead of being baked into the test — the head
+        // arity follows whatever checkpoint is on disk (this one is a
+        // 4-class toxicity classifier; earlier exports were 2-class).
+        let config: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(home.join("config.json"))
+                .expect("checkpoint config.json not readable"),
+        )
+        .expect("checkpoint config.json is not valid JSON");
+        let expected_classes = config
+            .get("id2label")
+            .and_then(|v| v.as_object())
+            .map(|m| m.len())
+            .filter(|&n| n > 0)
+            .expect("checkpoint config.json has no usable id2label mapping");
+
         let before = Instant::now();
         let sbert_model = DistilRobertaForSequenceClassificationRT::new(home, None).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
@@ -63,21 +80,18 @@ mod tests {
         println!("Vec: {:?}", output);
 
         // Structural checks (replaces stale hardcoded-float assertions that
-        // were written for a 2-class variant of this model; the on-disk
-        // `distilroberta_toxicity` checkpoint is a 4-class classifier — see
-        // `id2label` in its `config.json`).
+        // were written for a 2-class variant of this model).
         //
         // Per-sentence row is a softmax over class logits: every component
         // finite and in [0, 1], summing to ~1.0.
-        const EXPECTED_CLASSES: usize = 4;
         for (i, row) in output.iter().enumerate() {
             assert_eq!(
                 row.len(),
-                EXPECTED_CLASSES,
-                "sentence {} produced {} class probabilities (expected {})",
+                expected_classes,
+                "sentence {} produced {} class probabilities (expected {} per id2label)",
                 i,
                 row.len(),
-                EXPECTED_CLASSES
+                expected_classes
             );
             assert!(
                 row.iter().all(|v| v.is_finite()),

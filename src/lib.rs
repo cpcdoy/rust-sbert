@@ -1,4 +1,3 @@
-pub mod layers; // deprecated re-export shim
 pub mod models;
 pub mod modules;
 pub mod tokenizers;

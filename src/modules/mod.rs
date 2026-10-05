@@ -53,8 +53,8 @@ pub enum Features {
 ///
 /// Bound is `Send` only (not `Sync`) because the underlying `tch::Tensor`
 /// contains a raw `*mut C_tensor` which is `!Sync`. The pipeline is meant to
-/// live behind a `Mutex` (as in linkmesh's `SBERT_MODEL`), which only
-/// requires the inner type to be `Send`.
+/// live behind a `Mutex` (e.g. a shared model singleton in a server), which
+/// only requires the inner type to be `Send`.
 pub trait Module: Send {
     fn forward(&self, features: &mut Features) -> Result<(), Error>;
 }

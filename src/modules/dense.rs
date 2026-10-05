@@ -5,33 +5,54 @@
 
 use std::path::Path;
 
-use rust_bert::Config;
 use serde::{de, Deserialize, Deserializer};
 use std::str::FromStr;
 use strum_macros::EnumString;
-use tch::{nn, Device};
+use tch::{nn, Device, Tensor};
 
 use crate::modules::{Features, Module};
 use crate::Error;
 
-#[derive(Debug, Deserialize, EnumString)]
+/// Activation applied after the linear projection. `config.json` names it as
+/// the fully-qualified Python class (e.g. `torch.nn.Tanh`); only the last
+/// segment is compared, case-insensitively.
+#[derive(Debug, EnumString)]
+#[strum(ascii_case_insensitive)]
 pub enum Activation {
     Tanh,
+    Relu,
+    Gelu,
+}
+
+impl Activation {
+    fn apply(&self, t: &Tensor) -> Tensor {
+        match self {
+            Activation::Tanh => t.tanh(),
+            Activation::Relu => t.relu(),
+            Activation::Gelu => t.gelu("none"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct DenseConfig {
     pub in_features: i64,
     pub out_features: i64,
+    /// Defaults to `true` — older exports (e.g. the UKP v0.2 distiluse
+    /// `2_Dense/config.json`) omit the field but do carry a bias.
+    #[serde(default = "default_bias")]
+    pub bias: bool,
     #[serde(deserialize_with = "last_part")]
     pub activation_function: Activation,
 }
 
-impl Config for DenseConfig {}
+fn default_bias() -> bool {
+    true
+}
 
 pub struct Dense {
     linear: nn::Linear,
-    _conf: DenseConfig,
+    conf: DenseConfig,
 }
 
 impl Dense {
@@ -43,24 +64,33 @@ impl Dense {
 
         let mut vs_dense = nn::VarStore::new(device);
 
-        let init_conf = nn::LinearConfig {
-            ws_init: nn::Init::Const(0.),
-            bs_init: Some(nn::Init::Const(0.)),
-            bias: true,
-        };
-
         let config_file = module_dir.join("config.json");
         let weights_file = module_dir.join("model.ot");
 
-        let conf = DenseConfig::from_file(&config_file);
+        // Parsed manually (not via `Config::from_file`) so an unsupported
+        // `activation_function` surfaces as an `Err` instead of a panic.
+        let content = std::fs::read_to_string(&config_file).map_err(|e| {
+            log::error!("{} not readable: {}", config_file.display(), e);
+            Error::Encoding("Dense config.json not readable")
+        })?;
+        let conf: DenseConfig = serde_json::from_str(&content).map_err(|e| {
+            log::error!("invalid Dense config.json: {}", e);
+            Error::Encoding(
+                "invalid Dense config.json (unsupported activation_function?)",
+            )
+        })?;
+
+        let init_conf = nn::LinearConfig {
+            ws_init: nn::Init::Const(0.),
+            bs_init: Some(nn::Init::Const(0.)),
+            bias: conf.bias,
+        };
+
         let linear = nn::linear(&vs_dense.root(), conf.in_features, conf.out_features, init_conf);
 
         vs_dense.load(weights_file)?;
 
-        Ok(Dense {
-            linear,
-            _conf: conf,
-        })
+        Ok(Dense { linear, conf })
     }
 }
 
@@ -75,9 +105,8 @@ impl Module for Dense {
             }
         };
         // `embedding` is `&mut Tensor` — apply produces a fresh Tensor we
-        // write back. Tanh activation is hard-coded (the only variant
-        // `Activation` currently models).
-        let projected = embedding.apply(&self.linear).tanh();
+        // write back, then the configured activation is applied.
+        let projected = self.conf.activation_function.apply(&embedding.apply(&self.linear));
         *embedding = projected;
         Ok(())
     }

@@ -31,13 +31,17 @@ pub struct ModuleEntry {
 }
 
 impl ModuleEntry {
-    /// Last segment of `module_type` — `"Transformer"`, `"Pooling"`,
-    /// `"Dense"`, `"Normalize"`, etc. Lowercased for case-insensitive matching.
-    pub fn short_type(&self) -> &str {
+    /// Last segment of `module_type`, lowercased — `"transformer"`,
+    /// `"pooling"`, `"dense"`, `"normalize"`, etc. Lowercasing makes the
+    /// dispatch in `SentenceTransformer::new` case-insensitive (real
+    /// manifests use CamelCase Python class names such as
+    /// `sentence_transformers.models.DistilBERT`).
+    pub fn short_type(&self) -> String {
         self.module_type
             .rsplit('.')
             .next()
-            .unwrap_or(self.module_type.as_str())
+            .unwrap_or(&self.module_type)
+            .to_lowercase()
     }
 }
 

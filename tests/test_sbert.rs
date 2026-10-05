@@ -36,7 +36,7 @@ mod tests {
         home.push("0_DistilBERT");
 
         let vocab_file = home.join("vocab.txt");
-        let tok = HFTokenizer::new(&vocab_file, false).unwrap();
+        let tok = HFTokenizer::new(&vocab_file, false, 128).unwrap();
 
         let mut texts = Vec::new();
         texts.push(String::from("TTThis player needs tp be reported lolz."));
@@ -206,7 +206,7 @@ mod tests {
         let output = &sbert_model
             .forward_with_attention(&texts, BATCH_SIZE)
             .unwrap();
-        let emb = &output.0[0][..5];
+        let emb = &output.0[0];
         let attention = &output.1;
 
         println!("texts: {:?}", texts.clone());
@@ -267,7 +267,9 @@ mod tests {
                 .build()
                 .expect("Files not found, run `make test` to download these files"),
         );
-        let bert_normalizer = BertNormalizer::new(false, false, None, false);
+        // Parity with the library's HFTokenizer backend: HF's BertTokenizer
+        // defaults are clean_text=true, handle_chinese_chars=true.
+        let bert_normalizer = BertNormalizer::new(true, true, None, false);
         tokenizer.with_normalizer(bert_normalizer);
         tokenizer.with_pre_tokenizer(BertPreTokenizer);
         let bert_processing = BertProcessing::new(
@@ -285,11 +287,68 @@ mod tests {
         tokenizer
     }
 
+    /// `sentence_bert_config.json`'s `max_seq_length` (256 for MiniLM) must
+    /// be honored by the tokenizer — truncating at this crate's historical
+    /// 128 default diverges from Python sentence-transformers on long
+    /// inputs.
+    ///
+    /// Ignored by default because it requires the model files at
+    /// `models/all-MiniLM-L6-v2/` **including `sentence_bert_config.json`**.
+    #[test]
+    #[ignore]
+    fn test_minilm_max_seq_length() {
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("all-MiniLM-L6-v2");
+
+        let model = SBertHF::new(home, None).unwrap();
+
+        // 400 content tokens → truncated to 254 + [CLS]/[SEP] = 256 total.
+        // With the old hard-coded 128 this yields 128 and fails.
+        let long_text = "hello ".repeat(400);
+        let tokens = model.tokenizer().pre_tokenize(&[long_text]);
+        assert_eq!(
+            tokens[0].len(),
+            256,
+            "tokenizer must truncate to the checkpoint's max_seq_length (256)"
+        );
+    }
+
+    /// Reverse guard: cased checkpoints must NOT be lowercased.
+    ///
+    /// distiluse-base-multilingual-cased's vocab is cased (16k+ uppercase
+    /// tokens) and its config says `do_lower_case: false`. If the config
+    /// resolution ever defaulted wrongly to `true`, "TTThis" would become
+    /// "ttthis"→ subword garbage instead of `TT` `##T` `##his`.
+    ///
+    /// Ignored by default because it requires the model files at
+    /// `models/distiluse-base-multilingual-cased/`.
+    #[test]
+    #[ignore]
+    fn test_distiluse_remains_cased() {
+        let mut home: PathBuf = env::current_dir().unwrap();
+        home.push("models");
+        home.push("distiluse-base-multilingual-cased");
+
+        let model = SBertHF::new(home, None).unwrap();
+        let tokens = model
+            .tokenizer()
+            .pre_tokenize(&["TTThis player needs tp be reported lolz."]);
+
+        println!("tokens: {:?}", tokens[0]);
+        assert_eq!(
+            tokens[0],
+            [
+                "[CLS]", "TT", "##T", "##his", "player", "needs", "t", "##p", "be", "reported",
+                "lo", "##lz", ".", "[SEP]"
+            ]
+        );
+    }
+
     /// Regression test for the BERT backend (e.g. `sentence-transformers/all-MiniLM-L6-v2`).
     ///
     /// Ignored by default because it requires the model files to be present at
     /// `models/all-MiniLM-L6-v2/`.
-    /// ```
     #[test]
     #[ignore]
     fn test_bert_backend_minilm() {

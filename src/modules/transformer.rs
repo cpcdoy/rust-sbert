@@ -6,7 +6,7 @@
 //! `<module_dir>/config.json`'s `model_type` field and dispatches to the
 //! appropriate backend (`bert`, `distilbert`, ...).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use rust_bert::bert::{BertConfig, BertEmbeddings, BertModel};
 use rust_bert::distilbert::{DistilBertConfig, DistilBertModel};
@@ -156,9 +156,10 @@ impl TransformerBackend for BertBackend {
 #[derive(Debug, Deserialize)]
 struct ModelTypeProbe {
     /// Lowercased HF model_type tag: `"bert"`, `"distilbert"`, `"roberta"`, ...
-    /// Some older checkpoints (e.g. the original sentence-transformers
-    /// distiluse export) omit it; we fall back to `"distilbert"` since the
-    /// only known-omitted case is exactly that one.
+    /// Every known sentence-transformers export carries it (including the
+    /// v0.2 distiluse export, whose config says `"model_type": "distilbert"`).
+    /// A missing field is a hard error: guessing a default would surface only
+    /// later as an unrelated `vs.load` shape error.
     #[serde(default)]
     model_type: Option<String>,
 }
@@ -169,15 +170,13 @@ impl Config for ModelTypeProbe {}
 ///
 /// `module_dir` should already be resolved by [`crate::modules::manifest::resolve_module_dir`]
 /// — this function does no path fallback of its own. Dispatches on the
-/// config's `model_type` field (`bert`, `distilbert`).
-///
-/// Returns the backend plus the tokenizer directory (the same module dir —
-/// rust-bert reads `vocab.txt` from there).
+/// config's `model_type` field (`bert`, `distilbert`). Missing `model_type`
+/// is an error (the offending path is logged).
 pub fn load(
     module_dir: &Path,
     vs: &nn::Path,
     device: Device,
-) -> Result<(Box<dyn TransformerBackend>, PathBuf), Error> {
+) -> Result<Box<dyn TransformerBackend>, Error> {
     let config_file = module_dir.join("config.json");
 
     let probe = ModelTypeProbe::from_file(&config_file);
@@ -185,7 +184,13 @@ pub fn load(
         .model_type
         .as_deref()
         .map(|s| s.to_lowercase())
-        .unwrap_or_else(|| "distilbert".to_string());
+        .ok_or_else(|| {
+            log::error!(
+                "config.json at {} has no model_type field",
+                config_file.display()
+            );
+            Error::Encoding("transformer config.json has no model_type field")
+        })?;
 
     log::info!(
         "Loading transformer backend (model_type={}) from {}",
@@ -207,5 +212,5 @@ pub fn load(
         }
     };
 
-    Ok((backend, module_dir.to_path_buf()))
+    Ok(backend)
 }

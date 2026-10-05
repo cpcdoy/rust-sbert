@@ -85,10 +85,14 @@ Then you can use the `output` sentence embedding in any application you want.
 
 ### Loading a `bert`-backbone checkpoint (e.g. `all-MiniLM-L6-v2`)
 
-For most modern sentence-transformers BERT checkpoints rust-bert already
-publishes a pre-converted `rust_model.ot`, so no Python toolchain is needed.
-The HF `modules.json` for `all-MiniLM-L6-v2` declares the Transformer at
-`path: ""` (files at the model root):
+rust-bert publishes pre-converted `rust_model.ot` weights for a handful of
+well-known checkpoints (those its own sentence-embeddings pipeline lists —
+`all-MiniLM-L6-v2` is one of them), so no Python toolchain is needed for
+those. For anything else you must convert the weights yourself (see the next
+section); note that hub checkpoints shipping `2_Dense/model.safetensors` are
+not covered by `utils/prepare_models.py` either. The HF `modules.json` for
+`all-MiniLM-L6-v2` declares the Transformer at `path: ""` (files at the
+model root):
 
 ```Bash
 mkdir -p models/all-MiniLM-L6-v2/1_Pooling
@@ -98,6 +102,7 @@ curl -L -o models/all-MiniLM-L6-v2/model.ot                $HF/rust_model.ot
 curl -L -o models/all-MiniLM-L6-v2/config.json             $HF/config.json
 curl -L -o models/all-MiniLM-L6-v2/vocab.txt               $HF/vocab.txt
 curl -L -o models/all-MiniLM-L6-v2/tokenizer_config.json   $HF/tokenizer_config.json
+curl -L -o models/all-MiniLM-L6-v2/sentence_bert_config.json $HF/sentence_bert_config.json
 curl -L -o models/all-MiniLM-L6-v2/special_tokens_map.json $HF/special_tokens_map.json
 curl -L -o models/all-MiniLM-L6-v2/1_Pooling/config.json   $HF/1_Pooling/config.json
 curl -L -o models/all-MiniLM-L6-v2/modules.json            $HF/modules.json
@@ -157,7 +162,11 @@ To extend:
 
 - **New backbone** (e.g. RoBERTa): add a `RobertaBackend` struct + impl
   `TransformerBackend` for it + add a match arm in
-  `modules::transformer::load`.
+  `modules::transformer::load`. Note this alone is not enough: tokenization
+  is hard-coded to `vocab.txt` + WordPiece in `SentenceTransformer::new`, so
+  a backbone with a different tokenizer (RoBERTa's SentencePiece/BPE) also
+  needs a new `tokenizers::Tokenizer` implementation and corresponding
+  tokenizer-file resolution.
 - **New post-transformer module** (e.g. `WeightedLayerPooling`): add a
   module struct + impl `Module` for it + add a match arm on `short_type`
   in `SentenceTransformer::new`.
