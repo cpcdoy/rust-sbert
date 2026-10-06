@@ -11,10 +11,15 @@ use crate::Error;
 pub struct RustTokenizersSentencePiece {
     tokenizer: RobertaTokenizer,
     pad_token_id: i64,
+    max_seq_length: usize,
 }
 
 impl Tokenizer for RustTokenizersSentencePiece {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(
+        path: P,
+        _do_lower_case: bool,
+        max_seq_length: usize,
+    ) -> Result<Self, Error>
     where
         Self: Sized,
     {
@@ -34,6 +39,7 @@ impl Tokenizer for RustTokenizersSentencePiece {
         Ok(Self {
             tokenizer,
             pad_token_id,
+            max_seq_length,
         })
     }
 
@@ -49,9 +55,9 @@ impl Tokenizer for RustTokenizersSentencePiece {
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::tokenizer::Tokenizer;
 
-        let tokenized_input =
-            self.tokenizer
-                .encode_list(input, 128, &TruncationStrategy::LongestFirst, 0);
+        let tokenized_input = self
+            .tokenizer
+            .encode_list(input, self.max_seq_length, &TruncationStrategy::LongestFirst, 0);
 
         let max_len = tokenized_input
             .iter()

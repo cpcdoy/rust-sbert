@@ -19,7 +19,7 @@ pub struct HFTokenizer {
 }
 
 impl Tokenizer for HFTokenizer {
-    fn new<P: Into<PathBuf>>(path: P) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool, max_seq_length: usize) -> Result<Self, Error>
     where
         Self: Sized,
     {
@@ -28,7 +28,13 @@ impl Tokenizer for HFTokenizer {
                 .build()
                 .expect("Files not found."),
         );
-        let bert_normalizer = BertNormalizer::new(false, false, None, false);
+        // (clean_text, handle_chinese_chars, strip_accents, lowercase) —
+        // aligned with HF's BertTokenizer defaults: clean_text=true,
+        // handle_chinese_chars=true (Python: tokenize_chinese_chars).
+        // strip_accents left None — the tokenizers crate defaults it to the
+        // lowercase flag. Skipping the first two diverges from the
+        // RustTokenizers backend and Python on control chars and CJK input.
+        let bert_normalizer = BertNormalizer::new(true, true, None, do_lower_case);
         tokenizer.with_normalizer(bert_normalizer);
         tokenizer.with_pre_tokenizer(BertPreTokenizer);
         let bert_processing = BertProcessing::new(
@@ -57,7 +63,7 @@ impl Tokenizer for HFTokenizer {
             pad_token,
         }));
 
-        let max_length = 128;
+        let max_length = max_seq_length;
         let stride = 0;
         let strategy = TruncationStrategy::LongestFirst;
         let direction = TruncationDirection::Right;

@@ -1,6 +1,6 @@
 [package]
 name = "sbert"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
 description = "Rust implementation of Sentence Bert (SBert)"
@@ -19,6 +19,7 @@ rayon = "1.5"
 rust-bert = { git = "https://github.com/guillaume-be/rust-bert", rev = "29f9a7a", default-features = false }
 rust_tokenizers = "7.0"
 serde = "1.0"
+serde_json = "1.0"
 strum = "0.23"
 strum_macros = "0.23"
 tch = "0.15.0"

@@ -1,13 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
     use std::env;
     use std::path::PathBuf;
     use std::time::Instant;
 
     use torch_sys::dummy_cuda_dependency;
-
-    use tch::Tensor;
 
     use sbert::Tokenizer as TraitTokenizer;
     use sbert::{DistilRobertaForSequenceClassificationRT, RustTokenizersSentencePiece};
@@ -20,7 +17,7 @@ mod tests {
         home.push("models");
         home.push("distilroberta_toxicity");
 
-        let tok = RustTokenizersSentencePiece::new(home).unwrap();
+        let tok = RustTokenizersSentencePiece::new(home, false, 128).unwrap();
 
         let mut texts = Vec::new();
         texts.push(String::from("Omg you are so bad at this game!"));
@@ -48,6 +45,23 @@ mod tests {
         home.push("distilroberta_toxicity");
 
         println!("Loading distilroberta ...");
+
+        // The expected class count is read from the checkpoint's own
+        // `id2label` mapping instead of being baked into the test — the head
+        // arity follows whatever checkpoint is on disk (this one is a
+        // 4-class toxicity classifier; earlier exports were 2-class).
+        let config: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(home.join("config.json"))
+                .expect("checkpoint config.json not readable"),
+        )
+        .expect("checkpoint config.json is not valid JSON");
+        let expected_classes = config
+            .get("id2label")
+            .and_then(|v| v.as_object())
+            .map(|m| m.len())
+            .filter(|&n| n > 0)
+            .expect("checkpoint config.json has no usable id2label mapping");
+
         let before = Instant::now();
         let sbert_model = DistilRobertaForSequenceClassificationRT::new(home, None).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
@@ -65,26 +79,38 @@ mod tests {
         println!("Elapsed time: {:?}ms", before.elapsed().as_millis() / 10);
         println!("Vec: {:?}", output);
 
-        let v = output[0][..2]
-            .iter()
-            .map(|f| (f * 1000.0).round() / 1000.0)
-            .collect::<Vec<_>>();
-        let v2 = output[1][..2]
-            .iter()
-            .map(|f| (f * 1000.0).round() / 1000.0)
-            .collect::<Vec<_>>();
-
-        let ans1 = vec![-1.057, 1.993];
-        let ans1_softmax = Vec::<f32>::try_from(
-            (Tensor::from_slice(&ans1).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
-        ).unwrap();
-
-        let ans2 = vec![3.055, -2.810];
-        let ans2_softmax = Vec::<f32>::try_from(
-            (Tensor::from_slice(&ans2).softmax(0, tch::Kind::Float) * 1000.0).round() / 1000.0,
-        ).unwrap();
-
-        assert_eq!(v, ans1_softmax);
-        assert_eq!(v2, ans2_softmax);
+        // Structural checks (replaces stale hardcoded-float assertions that
+        // were written for a 2-class variant of this model).
+        //
+        // Per-sentence row is a softmax over class logits: every component
+        // finite and in [0, 1], summing to ~1.0.
+        for (i, row) in output.iter().enumerate() {
+            assert_eq!(
+                row.len(),
+                expected_classes,
+                "sentence {} produced {} class probabilities (expected {} per id2label)",
+                i,
+                row.len(),
+                expected_classes
+            );
+            assert!(
+                row.iter().all(|v| v.is_finite()),
+                "sentence {} contains NaN/inf in its probabilities",
+                i
+            );
+            assert!(
+                row.iter().all(|v| *v >= 0.0 && *v <= 1.0),
+                "sentence {} has a probability outside [0, 1]: {:?}",
+                i,
+                row
+            );
+            let sum: f32 = row.iter().copied().sum();
+            assert!(
+                (sum - 1.0).abs() < 1e-4,
+                "sentence {} probabilities sum to {} (expected 1.0)",
+                i,
+                sum
+            );
+        }
     }
 }

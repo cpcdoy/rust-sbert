@@ -41,7 +41,9 @@ where
 
         let mut vs = nn::VarStore::new(device);
 
-        let tokenizer = Arc::new(T::new(&root)?);
+        // No sentence_bert_config.json for this checkpoint layout — keep the
+        // historical default truncation length.
+        let tokenizer = Arc::new(T::new(&root, false, 128)?);
         let lm_model = RobertaForSequenceClassification::new(&vs.root(), &config).unwrap();
 
         vs.load(weights_file)?;
