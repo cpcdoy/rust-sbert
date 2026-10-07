@@ -18,6 +18,8 @@ jobs:
           curl -sSL -o libtorch.zip "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.2.0%2Bcpu.zip"
           unzip -q libtorch.zip
           rm libtorch.zip
+      - name: Format check
+        run: cargo fmt -- --check
       - name: Build
         run: cargo build --all-targets
       - name: Unit tests (no model files needed)
