@@ -75,9 +75,7 @@ impl Dense {
         })?;
         let conf: DenseConfig = serde_json::from_str(&content).map_err(|e| {
             log::error!("invalid Dense config.json: {}", e);
-            Error::Encoding(
-                "invalid Dense config.json (unsupported activation_function?)",
-            )
+            Error::Encoding("invalid Dense config.json (unsupported activation_function?)")
         })?;
 
         let init_conf = nn::LinearConfig {
@@ -86,7 +84,12 @@ impl Dense {
             bias: conf.bias,
         };
 
-        let linear = nn::linear(&vs_dense.root(), conf.in_features, conf.out_features, init_conf);
+        let linear = nn::linear(
+            &vs_dense.root(),
+            conf.in_features,
+            conf.out_features,
+            init_conf,
+        );
 
         vs_dense.load(weights_file)?;
 
@@ -106,7 +109,10 @@ impl Module for Dense {
         };
         // `embedding` is `&mut Tensor` — apply produces a fresh Tensor we
         // write back, then the configured activation is applied.
-        let projected = self.conf.activation_function.apply(&embedding.apply(&self.linear));
+        let projected = self
+            .conf
+            .activation_function
+            .apply(&embedding.apply(&self.linear));
         *embedding = projected;
         Ok(())
     }

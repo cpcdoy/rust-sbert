@@ -55,7 +55,9 @@ pub fn parse(root: &Path) -> Result<Vec<ModuleEntry>, Error> {
             modules_file.display(),
             e
         );
-        Error::Encoding("missing or unreadable modules.json (not a sentence-transformers checkpoint?)")
+        Error::Encoding(
+            "missing or unreadable modules.json (not a sentence-transformers checkpoint?)",
+        )
     })?;
     let entries: Vec<ModuleEntry> = serde_json::from_str(&content).map_err(|e| {
         log::error!("invalid modules.json: {}", e);

@@ -18,9 +18,7 @@ pub use dense::Dense;
 pub use manifest::{parse as parse_manifest, resolve_module_dir, ModuleEntry};
 pub use normalize::Normalize;
 pub use pooling::Pooling;
-pub use transformer::{
-    BertBackend, DistilBertBackend, TransformerBackend, TransformerOutput,
-};
+pub use transformer::{BertBackend, DistilBertBackend, TransformerBackend, TransformerOutput};
 
 use tch::Tensor;
 

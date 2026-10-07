@@ -55,9 +55,12 @@ impl Tokenizer for RustTokenizersSentencePiece {
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::tokenizer::Tokenizer;
 
-        let tokenized_input = self
-            .tokenizer
-            .encode_list(input, self.max_seq_length, &TruncationStrategy::LongestFirst, 0);
+        let tokenized_input = self.tokenizer.encode_list(
+            input,
+            self.max_seq_length,
+            &TruncationStrategy::LongestFirst,
+            0,
+        );
 
         let max_len = tokenized_input
             .iter()
