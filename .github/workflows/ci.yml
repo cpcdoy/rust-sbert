@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      LIBTORCH: ${{ github.workspace }}/libtorch
+      LD_LIBRARY_PATH: ${{ github.workspace }}/libtorch/lib
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download libtorch 2.2.0 (CPU), the version tch 0.15 expects
+        run: |
+          curl -sSL -o libtorch.zip "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.2.0%2Bcpu.zip"
+          unzip -q libtorch.zip
+          rm libtorch.zip
+      - name: Build
+        run: cargo build --all-targets
+      - name: Unit tests (no model files needed)
+        run: cargo test --lib
