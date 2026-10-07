@@ -6,4 +6,6 @@ notebooks/
 
 .profile
 
-Cargo.lock
+utils/__pycache__
+.DS_Store
+models

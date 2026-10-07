@@ -1,6 +1,6 @@
 [package]
 name = "sbert"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
 description = "Rust implementation of Sentence Bert (SBert)"
@@ -13,7 +13,9 @@ include = ["src/", "Cargo.toml", "build.rs"]
 [dependencies]
 lazy_static = "1.4"
 log = "0.4"
+ndarray = { version = "0.15", optional = true }
 num_cpus = "1.13"
+ort = { version = "~1.15.2", optional = true, default-features = false, features = ["half", "load-dynamic", "cuda"] }
 prost = "0.9"
 rayon = "1.5"
 rust-bert = { git = "https://github.com/guillaume-be/rust-bert", rev = "29f9a7a", default-features = false }
@@ -34,6 +36,7 @@ rand = "0.8"
 [features]
 doc-only = ["tch/doc-only"]
 all-tests = []
+onnx = ["rust-bert/onnx", "dep:ort", "dep:ndarray"]
 
 [package.metadata.docs.rs]
 features = ["doc-only"]
@@ -42,6 +45,17 @@ features = ["doc-only"]
 name = "sbert"
 path = "src/lib.rs"
 crate-type = ["lib"]
+
+# NOTE: ort 1.15.x is yanked on crates.io (the whole 1.x line — soundness
+# yank, pykeio/ort#386). The version above cannot be freshly resolved; it is
+# pinned by the COMMITTED Cargo.lock (registry source + checksum), which is
+# why Cargo.lock is checked in despite this being a library.
+#   - do NOT run a bare `cargo update` (re-resolution drops the pin and dies
+#     on the yank); use targeted `cargo update -p <pkg> --precise` only.
+#   - downstream users enabling the `onnx` feature must replicate the same
+#     [[package]] pin in their own Cargo.lock (dependency lockfiles are
+#     ignored by cargo).
+#   - remove the pin when rust-bert moves to ort 2.x.
 
 [[bin]]
 name = "convert-tensor"
@@ -68,4 +82,10 @@ doc = false
 name = "distilroberta_bench"
 path = "benches/bench_distilroberta.rs"
 harness = false
+doc = false
+
+[[test]]
+name = "test_onnx"
+path = "tests/test_onnx.rs"
+required-features = ["onnx"]
 doc = false

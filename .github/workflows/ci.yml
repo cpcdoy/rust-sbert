@@ -1,26 +1,114 @@
+# CI for the Luxbit fork of rust-sbert.
+#
+# Design notes:
+#
+# * This crate cannot even `cargo check` without libtorch: torch-sys's
+#   build.rs runs for check/doc builds too and hard-requires a libtorch.
+#   Every job acquires it the same way: `--features tch/download-libtorch`.
+#   torch-sys 0.15 pins PyTorch 2.2.0 and fetches it itself: CPU build on
+#   Linux, libtorch-macos-x86_64 zip on Intel, and the PyPI arm64 wheel on
+#   Apple Silicon runners. No env vars needed.
+#
+# * The `onnx` leg is hermetic (`ort` + `load-dynamic`): ort is compiled
+#   against the load-dynamic backend, so no onnxruntime is needed at build time.
+#
+# * The integration job prepares only the distiluse checkpoint (from the
+#   Hugging Face hub, torch-free — see utils/prepare_models.py) and runs
+#   just the `sbert_test` target: its model-backed tests. The MiniLM and
+#   attention tests are `#[ignore]`d in-source, and the distilroberta tests
+#   live in a different target (their model is never downloaded), so no
+#   `--skip` flags are needed.
+
 name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, "feat/**", "spike/**"]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  fmt:
     runs-on: ubuntu-latest
-    env:
-      LIBTORCH: ${{ github.workspace }}/libtorch
-      LD_LIBRARY_PATH: ${{ github.workspace }}/libtorch/lib
     steps:
       - uses: actions/checkout@v4
-      - name: Download libtorch 2.2.0 (CPU), the version tch 0.15 expects
-        run: |
-          curl -sSL -o libtorch.zip "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.2.0%2Bcpu.zip"
-          unzip -q libtorch.zip
-          rm libtorch.zip
-      - name: Format check
-        run: cargo fmt -- --check
-      - name: Build
-        run: cargo build --all-targets
-      - name: Unit tests (no model files needed)
-        run: cargo test --lib
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  check:
+    name: check (${{ matrix.os }}, ${{ matrix.profile }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+        profile: [default, onnx]
+        include:
+          - profile: default
+            features: "tch/download-libtorch"
+          - profile: onnx
+            features: "onnx,tch/download-libtorch"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check
+        run: cargo check --all-targets --features "${{ matrix.features }}"
+      - name: cargo doc (warnings are errors)
+        if: matrix.profile == 'default'
+        run: cargo doc --no-deps --features "${{ matrix.features }}"
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+  unit-tests:
+    # --lib runs the in-crate unit tests (pooling, manifest, tokenizer
+    # settings) which need no model files. Linux only: linking the test
+    # binary against the downloaded libtorch is guaranteed here; macOS test
+    # runtime (rpath) can be added once verified locally.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib --features "tch/download-libtorch"
+
+  integration-tests:
+    # End-to-end run of the model-backed sbert tests against the real
+    # distiluse checkpoint. Checkpoint prep is torch-free (HF hub download +
+    # safetensors -> npz in Python, npz -> .ot via the convert-tensor bin);
+    # libtorch for both the conversion and the test build comes from
+    # `tch/download-libtorch`, exactly like every other job in this file —
+    # no pip torch, no LIBTORCH_USE_PYTORCH, no version coupling.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install python deps
+        run: python -m pip install -r utils/requirements.txt
+      - name: Cache distiluse checkpoint
+        uses: actions/cache@v4
+        with:
+          path: models/
+          key: distiluse-${{ hashFiles('utils/prepare_models.py', 'utils/requirements.txt') }}
+      - name: Download and convert checkpoint
+        if: ${{ !hashFiles('models/distiluse-base-multilingual-cased/0_DistilBERT/model.ot') }}
+        run: python3 utils/prepare_models.py
+      # Only the sbert_test target: the other integration tests are either
+      # #[ignore]d in-source (MiniLM, ONNX parity, attention) or need
+      # checkpoints this job deliberately doesn't download (distilroberta).
+      - name: cargo test
+        run: cargo test --features "tch/download-libtorch" --test sbert_test

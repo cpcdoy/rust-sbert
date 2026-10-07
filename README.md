@@ -4,8 +4,8 @@
 [crates.io]: https://crates.io/crates/sbert
 [Latest Doc]: https://docs.rs/sbert/badge.svg
 [docs.rs]: https://docs.rs/sbert
-[Build Status]: https://github.com/cpcdoy/rust-sbert/actions/workflows/ci.yml/badge.svg?branch=master
-[ci]: https://github.com/cpcdoy/rust-sbert/actions/workflows/ci.yml
+[Build Status]: https://github.com/Luxbit/rust-sbert/actions/workflows/ci.yml/badge.svg
+[ci]: https://github.com/Luxbit/rust-sbert/actions/workflows/ci.yml
 
 Rust port of [sentence-transformers][] using [rust-bert][] and [tch-rs][].
 
@@ -146,6 +146,69 @@ docker run \
 
 Finally, set `"output_attentions": true` in
 `distiluse-base-multilingual-cased/0_distilbert/config.json`.
+
+## ONNX backend (optional)
+
+The transformer stage can run through ONNX Runtime instead of libtorch:
+Pooling/Dense/Normalize and the tokenizers stay exactly the same, and the
+libtorch (TorchScript) path remains the default — MPS on Apple Silicon is
+only available through it.
+
+Enable the feature and load with `new_onnx`:
+
+```Rust
+let sbert_model = SBertRT::new_onnx("models/all-MiniLM-L6-v2", None)?;
+let output = sbert_model.forward(&texts, 64)?;
+// or an explicit graph path:
+// SBertRT::new_onnx_with_file("models/all-MiniLM-L6-v2", "model.onnx", None)?
+```
+
+Export a backbone graph with `utils/prepare_onnx.py` (requires python with
+`optimum==1.25.x`, `transformers<5`, `torch`, `onnx`, `onnxscript` — see the
+script docstring; it handles opset/IR-version clamping for ONNX Runtime
+1.15):
+
+```Bash
+# PREFERRED: export from the checkpoint's own model.ot — the ONNX weights
+# then match the TorchScript path bit-for-bit (what tests/test_onnx.rs checks):
+python utils/prepare_onnx.py models/distiluse-base-multilingual-cased/0_DistilBERT \
+                             models/distiluse-base-multilingual-cased/0_DistilBERT
+
+# or from a hub repo (writes <out_dir>/model.onnx):
+python utils/prepare_onnx.py sentence-transformers/all-MiniLM-L6-v2 models/all-MiniLM-L6-v2
+```
+
+Runtime notes:
+
+- onnxruntime is loaded at runtime — ort never downloads it. Set
+  `ORT_DYLIB_PATH` to a `libonnxruntime.dylib`/`.so`/`.dll` (onnxruntime
+  1.15.1 pairs with ort 1.15) or install it on the system loader path —
+  the same manual workflow as `LIBTORCH` for tch.
+- **ort 1.15.x is yanked on crates.io**, and `Cargo.lock` does not ship
+  with libraries — so dependents enabling `onnx` need a patch source until
+  rust-bert moves to ort 2.x:
+
+  ```toml
+  [patch.crates-io]
+  ort = { git = "https://github.com/pykeio/ort", tag = "v1.15.3" }
+  ```
+
+- **CUDA execution provider**: the `onnx` feature enables ort's `cuda`
+  feature, so CUDA inference needs CUDA-11-era user-space libraries at
+  runtime (`libcudart.so.11.0`, cuDNN 8.9, cuBLAS 11.x — the
+  `nvidia-*-cu11` pip wheels provide them). Without them, ONNX Runtime
+  silently falls back to the CPU provider.
+- `device` semantics differ from the TorchScript path: it selects the ORT
+  **execution provider** only (`Device::Cuda(i)` → CUDA, anything else →
+  CPU). All tch-side tensors stay on CPU, so a CPU-only libtorch build is
+  enough for ONNX deployments. There is no Metal provider — use the default
+  backend for MPS.
+- Limits: `forward_with_attention` errors (exports carry no attention
+  outputs); graphs must expose a `last_hidden_state` output (optimum's
+  `feature-extraction` export of the bare backbone does — the
+  sentence_transformers-style export with `token_embeddings`/
+  `sentence_embedding` outputs is not supported); fp16 graphs are not
+  supported.
 
 ## Pipeline architecture
 

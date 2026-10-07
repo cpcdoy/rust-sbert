@@ -13,9 +13,11 @@ pub use crate::models::sbert::SentenceTransformer;
 // The underlying type is now `SentenceTransformer<T>`; this alias keeps
 // every prior call site compiling without changes.
 pub use crate::models::sbert::SentenceTransformer as SBert;
+#[cfg(feature = "onnx")]
+pub use crate::modules::OnnxBackend;
 pub use crate::modules::{
-    manifest, transformer, BertBackend, Dense, DistilBertBackend, Features, Module, Normalize,
-    Pooling, TransformerBackend, TransformerOutput,
+    manifest, transformer, BertBackend, Dense, DistilBertBackend, Features, LoadedTransformer,
+    Module, Normalize, Pooling, TransformerBackend, TransformerOutput, TransformerSource,
 };
 pub use crate::tokenizers::{HFTokenizer, RustTokenizers, RustTokenizersSentencePiece, Tokenizer};
 

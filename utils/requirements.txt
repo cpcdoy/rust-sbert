@@ -1,2 +1,7 @@
-torch == 1.13.1
-transformers == 4.30.0
+# Dependencies of utils/prepare_models.py (checkpoint download +
+# safetensors -> npz conversion). Deliberately torch-free: the Rust side
+# gets libtorch via `--features tch/download-libtorch` (see ci.yml), so no
+# pip torch wheel and no version coupling with torch-sys.
+huggingface_hub
+numpy
+safetensors
