@@ -19,7 +19,11 @@ pub struct HFTokenizer {
 }
 
 impl Tokenizer for HFTokenizer {
-    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool, max_seq_length: usize) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(
+        path: P,
+        do_lower_case: bool,
+        max_seq_length: usize,
+    ) -> Result<Self, Error>
     where
         Self: Sized,
     {

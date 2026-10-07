@@ -13,17 +13,18 @@ pub struct RustTokenizers {
 }
 
 impl Tokenizer for RustTokenizers {
-    fn new<P: Into<PathBuf>>(path: P, do_lower_case: bool, max_seq_length: usize) -> Result<Self, Error>
+    fn new<P: Into<PathBuf>>(
+        path: P,
+        do_lower_case: bool,
+        max_seq_length: usize,
+    ) -> Result<Self, Error>
     where
         Self: Sized,
     {
         // strip_accents follows do_lower_case, mirroring HF's BertTokenizer
         // default (tokenizer_config.json strip_accents: null).
-        let tokenizer = BertTokenizer::from_file(
-            &path.into().to_string_lossy(),
-            do_lower_case,
-            do_lower_case,
-        )?;
+        let tokenizer =
+            BertTokenizer::from_file(&path.into().to_string_lossy(), do_lower_case, do_lower_case)?;
 
         Ok(Self {
             tokenizer,
@@ -38,9 +39,12 @@ impl Tokenizer for RustTokenizers {
     fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
         use rust_tokenizers::tokenizer::Tokenizer;
 
-        let tokenized_input = self
-            .tokenizer
-            .encode_list(input, self.max_seq_length, &TruncationStrategy::LongestFirst, 0);
+        let tokenized_input = self.tokenizer.encode_list(
+            input,
+            self.max_seq_length,
+            &TruncationStrategy::LongestFirst,
+            0,
+        );
 
         let max_len = tokenized_input
             .iter()

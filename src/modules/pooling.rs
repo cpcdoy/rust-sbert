@@ -101,9 +101,7 @@ impl Module for Pooling {
                 attention_mask,
             } => (&*token_embeddings, &*attention_mask),
             _ => {
-                return Err(Error::Encoding(
-                    "Pooling received non-token features",
-                ));
+                return Err(Error::Encoding("Pooling received non-token features"));
             }
         };
 
@@ -126,8 +124,8 @@ impl Module for Pooling {
         }
 
         if self.mean || self.mean_sqrt_len {
-            let sum_embeddings = (token_embeddings * &input_mask_expanded)
-                .sum_dim_intlist(1, false, Kind::Float);
+            let sum_embeddings =
+                (token_embeddings * &input_mask_expanded).sum_dim_intlist(1, false, Kind::Float);
             let sum_mask = input_mask_expanded.sum_dim_intlist(1, false, Kind::Float);
 
             if self.mean {
@@ -145,7 +143,9 @@ impl Module for Pooling {
             _ => Tensor::cat(&vectors, 1),
         };
 
-        *features = Features::Sentence { embedding: sentence };
+        *features = Features::Sentence {
+            embedding: sentence,
+        };
         Ok(())
     }
 }
@@ -192,12 +192,7 @@ mod tests {
         for (row_got, row_want) in got.iter().zip(want.iter()) {
             assert_eq!(row_got.len(), row_want.len());
             for (g, w) in row_got.iter().zip(row_want.iter()) {
-                assert!(
-                    (g - w).abs() < 1e-6,
-                    "got {:?}, want {:?}",
-                    got,
-                    want
-                );
+                assert!((g - w).abs() < 1e-6, "got {:?}, want {:?}", got, want);
             }
         }
     }
@@ -244,8 +239,14 @@ mod tests {
         // cls first, then mean — same order as sentence-transformers.
         let rows = embed(&pooling(true, false, true, false));
         assert_eq!(rows[0].len(), 2 * H as usize, "outputs are concatenated");
-        assert_close(&vec![rows[0][..H as usize].to_vec()], &[&[0.0, 1.0, 2.0, 3.0]]);
-        assert_close(&vec![rows[0][H as usize..].to_vec()], &[&[2.0, 3.0, 4.0, 5.0]]);
+        assert_close(
+            &vec![rows[0][..H as usize].to_vec()],
+            &[&[0.0, 1.0, 2.0, 3.0]],
+        );
+        assert_close(
+            &vec![rows[0][H as usize..].to_vec()],
+            &[&[2.0, 3.0, 4.0, 5.0]],
+        );
     }
 
     #[test]

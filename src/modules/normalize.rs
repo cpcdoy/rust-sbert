@@ -26,9 +26,7 @@ impl Module for Normalize {
         let embedding = match features {
             Features::Sentence { embedding } => embedding,
             _ => {
-                return Err(Error::Encoding(
-                    "Normalize received non-sentence features",
-                ));
+                return Err(Error::Encoding("Normalize received non-sentence features"));
             }
         };
         // L2 norm along the hidden dim (axis 1 of [batch, hidden]), keepdim
