@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(String::as_str)
         .unwrap_or("models/distiluse-base-multilingual-cased");
 
-    let model = sbert::SBertRT::new(&home, None)?;
+    let model = sbert::SBertRT::new(home, None)?;
     let out = model.forward(&["TTThis player needs tp be reported lolz."], 1)?;
 
     println!("{:?}", out[0]);

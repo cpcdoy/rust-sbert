@@ -49,7 +49,7 @@ impl Tokenizer for RustTokenizers {
             .iter()
             .map(|input| input.token_ids.len())
             .max()
-            .unwrap_or_else(|| 0);
+            .unwrap_or(0);
 
         let tokenized_input = tokenized_input
             .into_iter()
@@ -66,8 +66,8 @@ impl Tokenizer for RustTokenizers {
                 input
                     .iter()
                     .map(|e| match *e {
-                        0 => 0 as i64,
-                        _ => 1 as i64,
+                        0 => 0_i64,
+                        _ => 1_i64,
                     })
                     .collect::<Vec<_>>()
             })

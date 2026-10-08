@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -46,7 +45,7 @@ where
         // No sentence_bert_config.json for this checkpoint layout — keep the
         // historical default truncation length.
         let tokenizer = Arc::new(T::new(&root, false, 128)?);
-        let lm_model = RobertaForSequenceClassification::new(&vs.root(), &config).unwrap();
+        let lm_model = RobertaForSequenceClassification::new(vs.root(), &config).unwrap();
 
         vs.load(weights_file)?;
 
@@ -63,7 +62,7 @@ where
         B: Into<Option<usize>>,
     {
         let input = input.iter().map(AsRef::as_ref).collect::<Vec<&str>>();
-        let batch_size = batch_size.into().unwrap_or_else(|| 64);
+        let batch_size = batch_size.into().unwrap_or(64);
 
         let _guard = tch::no_grad_guard();
 
@@ -143,7 +142,7 @@ where
 
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
-            .map(|i| mem::replace(&mut batch_tensors[i], vec![]))
+            .map(|i| std::mem::take(&mut batch_tensors[i]))
             .collect::<Vec<_>>();
 
         Ok(batch_tensors)

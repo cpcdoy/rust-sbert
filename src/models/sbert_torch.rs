@@ -11,7 +11,6 @@
 //! (`SBertRT::new(...).forward(...)`) keep working unchanged.
 
 use std::convert::TryFrom;
-use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -121,7 +120,7 @@ where
             }
         }
 
-        let transformer_dir = transformer_dir.ok_or_else(|| {
+        let transformer_dir = transformer_dir.ok_or({
             Error::Encoding("modules.json has no Transformer entry — cannot build pipeline")
         })?;
 
@@ -139,7 +138,7 @@ where
         );
 
         let tokenizer = Arc::new(T::new(
-            &transformer_dir.join("vocab.txt"),
+            transformer_dir.join("vocab.txt"),
             settings.do_lower_case,
             settings.max_seq_length,
         )?);
@@ -163,7 +162,7 @@ where
         B: Into<Option<usize>>,
     {
         let input = input.iter().map(AsRef::as_ref).collect::<Vec<&str>>();
-        let batch_size = batch_size.into().unwrap_or_else(|| 64);
+        let batch_size = batch_size.into().unwrap_or(64);
 
         let _guard = tch::no_grad_guard();
 
@@ -234,7 +233,7 @@ where
         let sorted_pad_input_idx = pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
-            .map(|i| mem::replace(&mut batch_tensors[i], vec![]))
+            .map(|i| std::mem::take(&mut batch_tensors[i]))
             .collect::<Vec<_>>();
 
         Ok(batch_tensors)
@@ -255,7 +254,7 @@ where
         B: Into<Option<usize>>,
     {
         let input = input.iter().map(AsRef::as_ref).collect::<Vec<&str>>();
-        let batch_size = batch_size.into().unwrap_or_else(|| 64);
+        let batch_size = batch_size.into().unwrap_or(64);
 
         let _guard = tch::no_grad_guard();
 
@@ -325,7 +324,7 @@ where
             };
             batch_tensors.extend(Vec::<Embeddings>::try_from(embedding).unwrap());
 
-            let attention = attention.ok_or_else(|| Error::Encoding("No attention"))?;
+            let attention = attention.ok_or(Error::Encoding("No attention"))?;
             for i in 0..batch_len as i64 {
                 let mut layers_att = att::Layers::with_capacity(nb_layers);
 
@@ -351,11 +350,11 @@ where
         let sorted_pad_input_idx = pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .iter()
-            .map(|&i| mem::replace(&mut batch_tensors[i], vec![]))
+            .map(|&i| std::mem::take(&mut batch_tensors[i]))
             .collect::<Vec<_>>();
         let batch_attention_tensors = sorted_pad_input_idx
             .into_iter()
-            .map(|i| mem::replace(&mut batch_attention_tensors[i], vec![]))
+            .map(|i| std::mem::take(&mut batch_attention_tensors[i]))
             .collect::<Vec<_>>();
 
         Ok((batch_tensors, batch_attention_tensors))

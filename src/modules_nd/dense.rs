@@ -44,11 +44,11 @@ impl Activation {
 /// approximation is used (|absolute error| < 1.5e-7 — below f32 rounding
 /// for embedding workloads).
 fn gelu_erf(x: f32) -> f32 {
-    const A1: f32 = 0.254829592;
-    const A2: f32 = -0.284496736;
-    const A3: f32 = 1.421413741;
-    const A4: f32 = -1.453152027;
-    const A5: f32 = 1.061405429;
+    const A1: f32 = 0.254_829_6;
+    const A2: f32 = -0.284_496_72;
+    const A3: f32 = 1.421_413_8;
+    const A4: f32 = -1.453_152_1;
+    const A5: f32 = 1.061_405_4;
     const P: f32 = 0.3275911;
 
     let erf = |x: f32| {
@@ -155,6 +155,19 @@ impl Module for Dense {
     }
 }
 
+/// Split the given string on `.` and try to construct an `Activation` from the last part
+fn last_part<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Activation, D::Error> {
+    let activation = String::deserialize(deserializer)?;
+    activation
+        .split('.')
+        .next_back()
+        .map(Activation::from_str)
+        .transpose()
+        .map_err(de::Error::custom)?
+        .ok_or_else(|| format!("Invalid Activation: {}", activation))
+        .map_err(de::Error::custom)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,17 +240,4 @@ mod tests {
             );
         }
     }
-}
-
-/// Split the given string on `.` and try to construct an `Activation` from the last part
-fn last_part<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Activation, D::Error> {
-    let activation = String::deserialize(deserializer)?;
-    activation
-        .split('.')
-        .last()
-        .map(Activation::from_str)
-        .transpose()
-        .map_err(de::Error::custom)?
-        .ok_or_else(|| format!("Invalid Activation: {}", activation))
-        .map_err(de::Error::custom)
 }

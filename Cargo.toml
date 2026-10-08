@@ -22,7 +22,6 @@ torch = ["dep:tch", "dep:torch-sys", "dep:rust-bert", "rust-bert/libtorch"]
 onnx = ["dep:rust-bert", "rust-bert/onnx", "dep:ort", "dep:ndarray"]
 # docs.rs: skip libtorch linking when building documentation.
 doc-only = ["torch", "tch/doc-only"]
-all-tests = []
 
 [dependencies]
 log = "0.4"

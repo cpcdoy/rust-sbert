@@ -268,8 +268,8 @@ mod tests {
         // cls first, then mean — same order as sentence-transformers.
         let rows = embed(&pooling(true, false, true, false));
         assert_eq!(rows[0].len(), 2 * 4, "outputs are concatenated");
-        assert_close(&vec![rows[0][..4].to_vec()], &[&[0.0, 1.0, 2.0, 3.0]]);
-        assert_close(&vec![rows[0][4..].to_vec()], &[&[2.0, 3.0, 4.0, 5.0]]);
+        assert_close(&[rows[0][..4].to_vec()], &[&[0.0, 1.0, 2.0, 3.0]]);
+        assert_close(&[rows[0][4..].to_vec()], &[&[2.0, 3.0, 4.0, 5.0]]);
     }
 
     #[test]

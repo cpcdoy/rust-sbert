@@ -99,7 +99,7 @@ where
             }
         }
 
-        let transformer_dir = transformer_dir.ok_or_else(|| {
+        let transformer_dir = transformer_dir.ok_or({
             Error::Encoding("modules.json has no Transformer entry — cannot build pipeline")
         })?;
 
@@ -113,7 +113,7 @@ where
         );
 
         let tokenizer = Arc::new(T::new(
-            &transformer_dir.join("vocab.txt"),
+            transformer_dir.join("vocab.txt"),
             settings.do_lower_case,
             settings.max_seq_length,
         )?);
@@ -135,7 +135,7 @@ where
         B: Into<Option<usize>>,
     {
         let input = input.iter().map(AsRef::as_ref).collect::<Vec<&str>>();
-        let batch_size = batch_size.into().unwrap_or_else(|| 64);
+        let batch_size = batch_size.into().unwrap_or(64);
 
         let sorted_pad_input_idx = pad_sort(&input.iter().map(|s| s.len()).collect::<Vec<usize>>());
         let sorted_pad_input = sorted_pad_input_idx
@@ -202,7 +202,7 @@ where
         let sorted_pad_input_idx = pad_sort(&sorted_pad_input_idx);
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
-            .map(|i| mem::replace(&mut batch_tensors[i], vec![]))
+            .map(|i| mem::take(&mut batch_tensors[i]))
             .collect::<Vec<_>>();
 
         Ok(batch_tensors)

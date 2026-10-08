@@ -38,8 +38,7 @@ mod tests {
         let vocab_file = home.join("vocab.txt");
         let tok = HFTokenizer::new(&vocab_file, false, 128).unwrap();
 
-        let mut texts = Vec::new();
-        texts.push(String::from("TTThis player needs tp be reported lolz."));
+        let texts = vec![String::from("TTThis player needs tp be reported lolz.")];
 
         let tokens = tok.pre_tokenize(&texts);
         println!("Tokens {:?}", tokens[0]);
@@ -184,7 +183,7 @@ mod tests {
     /// to add `"output_attentions": true` and invoke:
     ///
     /// ```sh
-    /// cargo test --features all-tests -- --ignored test_sbert_encode_attention
+    /// cargo test --test sbert_test -- --ignored test_sbert_encode_attention
     /// ```
     #[test]
     #[ignore]
@@ -198,9 +197,7 @@ mod tests {
         let sbert_model = SBertHF::new(home, None).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let mut texts = Vec::new();
-        texts.push(String::from("test"));
-        texts.push(String::from("testtest"));
+        let texts = vec![String::from("test"), String::from("testtest")];
 
         println!("Encoding {} sentence with attention...", texts.len());
         let output = &sbert_model
@@ -243,7 +240,7 @@ mod tests {
         let mut tokens_and_atts: Vec<(f32, String)> = Vec::new();
 
         for (att, tok) in tok_highlights.iter().zip(tokens[0].iter()) {
-            tokens_and_atts.push((att.clone(), tok.clone()));
+            tokens_and_atts.push((*att, tok.clone()));
         }
         println!("########### Tokens and att: {:?}", tokens_and_atts);
         println!(
@@ -321,14 +318,20 @@ mod tests {
     /// resolution ever defaulted wrongly to `true`, "TTThis" would become
     /// "ttthis"→ subword garbage instead of `TT` `##T` `##his`.
     ///
-    /// Ignored by default because it requires the model files at
-    /// `models/distiluse-base-multilingual-cased/`.
+    /// Skips itself when the checkpoint is absent (CI prepares it via
+    /// utils/prepare_models.py alongside the rest of sbert_test).
     #[test]
-    #[ignore]
     fn test_distiluse_remains_cased() {
         let mut home: PathBuf = env::current_dir().unwrap();
         home.push("models");
         home.push("distiluse-base-multilingual-cased");
+        if !home.exists() {
+            println!(
+                "skipping: models/distiluse-base-multilingual-cased not present \
+                 (see utils/prepare_models.py)"
+            );
+            return;
+        }
 
         let model = SBertHF::new(home, None).unwrap();
         let tokens = model
@@ -410,7 +413,7 @@ mod tests {
             .iter()
             .map(|input| input.token_ids.len())
             .max()
-            .unwrap_or_else(|| 0);
+            .unwrap_or(0);
 
         let tokenized_input = tokenized_input
             .into_iter()
@@ -445,7 +448,7 @@ mod tests {
 
         let tok_i64 = encoding[0]
             .get_ids()
-            .into_iter()
+            .iter()
             .map(|e| *e as i64)
             .collect::<Vec<_>>();
         assert_eq!(tok_i64, tokenized_input[0]);

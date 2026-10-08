@@ -141,7 +141,7 @@ fn bench_tokenizers(c: &mut Criterion) {
             .iter()
             .map(|input| input.token_ids.len())
             .max()
-            .unwrap_or_else(|| 0);
+            .unwrap_or(0);
 
         tokenized_input
             .into_iter()

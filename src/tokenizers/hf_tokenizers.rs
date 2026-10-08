@@ -109,8 +109,8 @@ impl Tokenizer for HFTokenizer {
                     .get_ids()
                     .iter()
                     .map(|e| match *e {
-                        0 => 0 as i64,
-                        _ => 1 as i64,
+                        0 => 0_i64,
+                        _ => 1_i64,
                     })
                     .collect::<Vec<_>>()
             })

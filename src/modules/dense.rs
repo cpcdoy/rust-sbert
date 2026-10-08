@@ -85,7 +85,7 @@ impl Dense {
         };
 
         let linear = nn::linear(
-            &vs_dense.root(),
+            vs_dense.root(),
             conf.in_features,
             conf.out_features,
             init_conf,
@@ -126,7 +126,7 @@ where
     let activation = String::deserialize(deserializer)?;
     activation
         .split('.')
-        .last()
+        .next_back()
         .map(Activation::from_str)
         .transpose()
         .map_err(de::Error::custom)?

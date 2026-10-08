@@ -19,11 +19,10 @@ mod tests {
 
         let tok = RustTokenizersSentencePiece::new(home, false, 128).unwrap();
 
-        let mut texts = Vec::new();
-        texts.push(String::from("Omg you are so bad at this game!"));
-        texts.push(String::from(
-            "wow it's a nice day todayyyyyyyyyyyyyyyyyyyy!!!",
-        ));
+        let texts = vec![
+            String::from("Omg you are so bad at this game!"),
+            String::from("wow it's a nice day todayyyyyyyyyyyyyyyyyyyy!!!"),
+        ];
 
         let toks = tok.pre_tokenize(&texts);
         println!("Pretokenize {:?}", toks);
@@ -66,12 +65,11 @@ mod tests {
         let sbert_model = DistilRobertaForSequenceClassificationRT::new(home, None).unwrap();
         println!("Elapsed time: {:.2?}", before.elapsed());
 
-        let mut texts = Vec::new();
-        texts.push(String::from("Omg you are so bad at this game!"));
-        texts.push(String::from(
-            "wow it's a nice day todayyyyyyyyyyyyyyyyyyyy!!!",
-        ));
-        texts.push(String::from("lollll!!!"));
+        let texts = vec![
+            String::from("Omg you are so bad at this game!"),
+            String::from("wow it's a nice day todayyyyyyyyyyyyyyyyyyyy!!!"),
+            String::from("lollll!!!"),
+        ];
 
         println!("Encoding {} sentences...", texts.len());
         let before = Instant::now();

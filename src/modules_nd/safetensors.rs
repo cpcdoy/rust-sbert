@@ -104,8 +104,10 @@ impl SafetensorsFile {
         }
         let slice = &self.data[self.data_start + start..range_end];
         let values = slice
-            .chunks_exact(4)
-            .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|c| f32::from_le_bytes(*c))
             .collect::<Vec<f32>>();
         ArrayD::from_shape_vec(IxDyn(&meta.shape), values)
             .map_err(|_| Error::Encoding("safetensors shape/len mismatch"))
@@ -120,11 +122,9 @@ mod tests {
     /// is unique per caller so parallel tests never share (and unlink)
     /// the same file.
     fn build_file(name: &str) -> std::path::PathBuf {
-        let t0 = vec![1.0f32, -2.0, 3.5];
-        let t1 = vec![0.25f32; 4];
-        let header = format!(
-            r#"{{"t0":{{"dtype":"F32","shape":[3],"data_offsets":[0,12]}},"t1":{{"dtype":"F32","shape":[2,2],"data_offsets":[12,28]}}}}"#
-        );
+        let t0 = [1.0f32, -2.0, 3.5];
+        let t1 = [0.25f32; 4];
+        let header = r#"{"t0":{"dtype":"F32","shape":[3],"data_offsets":[0,12]},"t1":{"dtype":"F32","shape":[2,2],"data_offsets":[12,28]}}"#;
         let mut bytes = (header.len() as u64).to_le_bytes().to_vec();
         bytes.extend_from_slice(header.as_bytes());
         for v in t0.iter().chain(t1.iter()) {
