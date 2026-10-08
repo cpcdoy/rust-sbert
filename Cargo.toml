@@ -1,42 +1,59 @@
 [package]
 name = "sbert"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
-description = "Rust implementation of Sentence Bert (SBert)"
+description = "Rust implementation of Sentence Bert (SBert) — libtorch or ONNX Runtime backend"
 repository = "https://github.com/cpcdoy/rust-sbert"
 keywords = ["nlp", "embedding", "bert", "sbert", "transformers"]
 license = "Apache-2.0"
 readme = "README.md"
-include = ["src/", "Cargo.toml", "build.rs"]
+include = ["src/", "Cargo.toml", "README.md"]
+
+[features]
+default = ["torch"]
+# libtorch backend (rust-bert TorchScript transformer + tch modules).
+# rust-bert's tch dependency carries `download-libtorch`, so torch-sys can
+# fetch libtorch itself when no LIBTORCH* env vars are set.
+torch = ["dep:tch", "dep:torch-sys", "dep:rust-bert", "rust-bert/libtorch"]
+# ONNX Runtime backend (rust-bert's ndarray ONNXEncoder + pure-ndarray
+# modules). No libtorch anywhere in the graph; onnxruntime is located at
+# RUNTIME via ORT_DYLIB_PATH (manual setup — see README).
+onnx = ["dep:rust-bert", "rust-bert/onnx", "dep:ort", "dep:ndarray"]
+# docs.rs: skip libtorch linking when building documentation.
+doc-only = ["torch", "tch/doc-only"]
+all-tests = []
 
 [dependencies]
-lazy_static = "1.4"
 log = "0.4"
-ndarray = { version = "0.15", optional = true }
-num_cpus = "1.13"
-ort = { version = "~1.15.2", optional = true, default-features = false, features = ["half", "load-dynamic", "cuda"] }
-prost = "0.9"
+# Under `onnx` this must match rust-bert's ndarray (the ONNXEncoder API is
+# ndarray-typed).
+ndarray = { version = "0.17", optional = true }
 rayon = "1.5"
-rust-bert = { git = "https://github.com/guillaume-be/rust-bert", rev = "29f9a7a", default-features = false }
+# Luxbit fork of rust-bert: tch is optional there, which is what lets the
+# `onnx` feature below stay libtorch-free. `libtorch` re-adds tch 0.17
+# (unified with our direct dep).
+rust-bert = { git = "https://github.com/Luxbit/rust-bert", branch = "main", optional = true, default-features = false }
 rust_tokenizers = "7.0"
 serde = "1.0"
 serde_json = "1.0"
 strum = "0.23"
 strum_macros = "0.23"
-tch = "0.15.0"
 thiserror = "1.0"
 tokenizers = "0.15"
-torch-sys = "0.15.0"
+tch = { version = "0.17", optional = true }
+# Only for the `dummy_cuda_dependency` Windows linking hack in torch tests.
+torch-sys = { version = "0.17", optional = true }
+# "Manual setup" per the rust-bert fork README (onnx feature): an explicit
+# `ort` dependency with `load-dynamic`, version-matched to rust-bert's, so
+# the onnxruntime C++ library is located at RUNTIME via ORT_DYLIB_PATH
+# instead of being linked or downloaded at build time. The version must
+# exactly match rust-bert's pin ("=2.0.0-rc.13").
+ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["load-dynamic"] }
 
 [dev-dependencies]
 criterion = "0.3"
 rand = "0.8"
-
-[features]
-doc-only = ["tch/doc-only"]
-all-tests = []
-onnx = ["rust-bert/onnx", "dep:ort", "dep:ndarray"]
 
 [package.metadata.docs.rs]
 features = ["doc-only"]
@@ -46,42 +63,36 @@ name = "sbert"
 path = "src/lib.rs"
 crate-type = ["lib"]
 
-# NOTE: ort 1.15.x is yanked on crates.io (the whole 1.x line — soundness
-# yank, pykeio/ort#386). The version above cannot be freshly resolved; it is
-# pinned by the COMMITTED Cargo.lock (registry source + checksum), which is
-# why Cargo.lock is checked in despite this being a library.
-#   - do NOT run a bare `cargo update` (re-resolution drops the pin and dies
-#     on the yank); use targeted `cargo update -p <pkg> --precise` only.
-#   - downstream users enabling the `onnx` feature must replicate the same
-#     [[package]] pin in their own Cargo.lock (dependency lockfiles are
-#     ignored by cargo).
-#   - remove the pin when rust-bert moves to ort 2.x.
-
 [[bin]]
 name = "convert-tensor"
 path = "src/bin/convert-tensor.rs"
+required-features = ["torch"]
 doc = false
 
 [[test]]
 name = "sbert_test"
 path = "tests/test_sbert.rs"
+required-features = ["torch"]
 doc = false
 
 [[test]]
 name = "distilroberta_test"
 path = "tests/test_distilroberta.rs"
+required-features = ["torch"]
 doc = false
 
 [[bench]]
 name = "sbert_bench"
 path = "benches/bench_sbert.rs"
 harness = false
+required-features = ["torch"]
 doc = false
 
 [[bench]]
 name = "distilroberta_bench"
 path = "benches/bench_distilroberta.rs"
 harness = false
+required-features = ["torch"]
 doc = false
 
 [[test]]
@@ -89,3 +100,23 @@ name = "test_onnx"
 path = "tests/test_onnx.rs"
 required-features = ["onnx"]
 doc = false
+
+[[example]]
+name = "encode_torch"
+path = "examples/encode_torch.rs"
+required-features = ["torch"]
+
+[[example]]
+name = "encode_onnx"
+path = "examples/encode_onnx.rs"
+required-features = ["onnx"]
+
+[[example]]
+name = "dump_torch"
+path = "examples/dump_torch.rs"
+required-features = ["torch"]
+
+[[example]]
+name = "dump_onnx"
+path = "examples/dump_onnx.rs"
+required-features = ["onnx"]

@@ -4,8 +4,6 @@ mod rust_tokenizers_sentencepiece;
 
 use std::path::PathBuf;
 
-use tch::Tensor;
-
 pub trait Tokenizer {
     /// `path` is tokenizer-impl specific (a vocab file for the BERT impls,
     /// a model directory for sentencepiece). `do_lower_case` comes from the
@@ -25,7 +23,10 @@ pub trait Tokenizer {
     where
         Self: Sized;
     fn pre_tokenize<S: AsRef<str>>(&self, input: &[S]) -> Vec<Vec<String>>;
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>);
+    /// Tokenize a batch into padded token ids and the matching attention
+    /// mask. Both vectors have one entry per input; rows are padded to the
+    /// longest sequence in the batch (pad id 0 / the impl's pad token).
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Vec<i64>>, Vec<Vec<i64>>);
 }
 
 pub use self::hf_tokenizers::HFTokenizer;

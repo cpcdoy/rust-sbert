@@ -1,0 +1,6 @@
+# Dependencies of `utils/prepare_models.py --backend torch`
+# (checkpoint scaffolding + safetensors -> npz; the npz -> .ot step runs the
+# `convert-tensor` cargo bin, which brings its own libtorch).
+huggingface_hub
+numpy
+safetensors

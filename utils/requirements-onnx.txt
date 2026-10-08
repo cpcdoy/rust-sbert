@@ -1,0 +1,10 @@
+# Additional dependencies of `utils/prepare_models.py --backend onnx`
+# (bare-backbone optimum export). Pin notes (see utils/prepare_onnx.py):
+# optimum 2.x dropped ONNX export from the CLI/core, and optimum 1.25
+# requires transformers < 5. CI installs the torch wheel from the CPU index
+# before this file.
+huggingface_hub
+torch
+transformers >= 4, < 5
+optimum >= 1.25, < 2
+onnx
