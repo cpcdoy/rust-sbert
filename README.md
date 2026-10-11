@@ -16,8 +16,8 @@ design, one tensor library per build:
 
 |  | Cargo | Weights | Runtime needs |
 |---|---|---|---|
-| libtorch (default) | `sbert = "0.8"` (feature `torch`) | `model.ot` VarStore archives | libtorch (torch-sys can download it; MPS/Vulkan supported) |
-| ONNX Runtime, no libtorch | `sbert = { version = "0.8", default-features = false, features = ["onnx"] }` | `model.onnx` + `2_Dense/weights.safetensors` | onnxruntime via `ORT_DYLIB_PATH` |
+| libtorch (default) | `sbert = "0.7"` (feature `torch`) | `model.ot` VarStore archives | libtorch (torch-sys can download it; MPS/Vulkan supported) |
+| ONNX Runtime, no libtorch | `sbert = { version = "0.7", default-features = false, features = ["onnx"] }` | `model.onnx` + `2_Dense/weights.safetensors` | onnxruntime via `ORT_DYLIB_PATH` |
 
 
 The model pipeline is driven by a checkpoint's `modules.json` manifest: the
