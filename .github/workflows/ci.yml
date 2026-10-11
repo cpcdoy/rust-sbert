@@ -7,8 +7,8 @@
 #   therefore pass `--no-default-features --features onnx`; every torch-leg
 #   command uses the default feature set.
 #
-# * torch leg: the `torch` feature enables rust-bert's `libtorch`, whose tch
-#   dependency carries `download-libtorch` — torch-sys fetches PyTorch 2.4
+# * torch leg: the `torch` feature enables rust-bert's `libtorch` plus its
+#   `libtorch-download` opt-in — torch-sys fetches PyTorch 2.4
 #   itself (CPU build on Linux, matching wheel on Apple Silicon runners)
 #   when no LIBTORCH* env vars are set. check/doc/unit jobs are otherwise
 #   hermetic.
@@ -32,6 +32,11 @@
 #   backend max-abs 1e-4 / cosine 1-1e-6, batch-vs-solo invariance 1e-5.
 #
 # * clippy mirrors the check matrix with -D warnings (both feature sets).
+#
+# * macOS leg pinned to macos-15 (Xcode 16): Xcode 26's libc++ forbids
+#   specializing std type traits (_LIBCPP_NO_SPECIALIZATIONS), which hard-
+#   errors in libtorch 2.4's c10/util/strong_type.h under torch-sys 0.17.
+#   Revisit when tch/the rust-bert fork move past libtorch 2.4.
 
 name: CI
 
@@ -78,7 +83,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # macos-15, not macos-latest: see the Xcode 26 note in the header.
+        os: [ubuntu-latest, macos-15]
         backend: [torch, onnx]
     runs-on: ${{ matrix.os }}
     steps:
@@ -154,16 +160,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      # >= 1.23, not 1.20-1.22: ort 2.0.0-rc.13 releases the ORT environment
+      # from a .fini_array handler at process exit, and onnxruntime 1.20-1.22
+      # segfaults inside its own teardown at that point (fixed in 1.23) —
+      # every onnx-leg binary would exit 139 after succeeding.
       - name: Manual onnxruntime setup
         run: |
-          curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-linux-x64-1.20.1.tgz \
+          curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz \
             | tar -xz -C /opt
-          mv /opt/onnxruntime-linux-x64-1.20.1 /opt/onnxruntime
+          mv /opt/onnxruntime-linux-x64-1.23.2 /opt/onnxruntime
           ls -la /opt/onnxruntime/lib
       - name: Install python deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # Pinned: optimum 1.25 (see utils/requirements-onnx.txt) is only
+          # compatible up to this torch — newer ones removed torch.onnx
+          # internals optimum >= 1.26 imports. The pin must live here, not
+          # in the requirements file, or pip would reinstall CUDA wheels
+          # from PyPI over this CPU build.
+          python -m pip install "torch == 2.14.1" --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r utils/requirements-onnx.txt
       - name: Cache distiluse checkpoint
         uses: actions/cache@v4
@@ -194,16 +209,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      # Same >= 1.23 pin as integration-onnx (1.20-1.22 segfault at exit).
       - name: Manual onnxruntime setup
         run: |
-          curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-linux-x64-1.20.1.tgz \
+          curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz \
             | tar -xz -C /opt
-          mv /opt/onnxruntime-linux-x64-1.20.1 /opt/onnxruntime
+          mv /opt/onnxruntime-linux-x64-1.23.2 /opt/onnxruntime
           ls -la /opt/onnxruntime/lib
       - name: Install python deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # Pinned to the optimum-1.25-compatible torch — see the matching
+          # comment in the integration-onnx job.
+          python -m pip install "torch == 2.14.1" --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r utils/requirements-torch.txt -r utils/requirements-onnx.txt
       - name: Cache distiluse checkpoint (both backends)
         uses: actions/cache@v4

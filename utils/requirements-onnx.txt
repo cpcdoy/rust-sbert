@@ -1,10 +1,22 @@
-# Additional dependencies of `utils/prepare_models.py --backend onnx`
-# (bare-backbone optimum export). Pin notes (see utils/prepare_onnx.py):
-# optimum 2.x dropped ONNX export from the CLI/core, and optimum 1.25
-# requires transformers < 5. CI installs the torch wheel from the CPU index
-# before this file.
+# Dependencies of `utils/prepare_models.py --backend onnx` (bare-backbone
+# optimum export — recipe notes in utils/prepare_onnx.py). Exact pins are
+# the locally validated combo; CI installs the torch wheel from the CPU
+# index *before* this file, pinned in ci.yml. Rationale:
+# * optimum 2.x dropped ONNX export from the CLI/core — stay on 1.x;
+# * optimum >= 1.26 imports torch.onnx internals (_attention_scale in
+#   symbolic_opset14) that newer torch removed, failing at import time
+#   (broke CI 2026-10); optimum 1.25.0 has no such import;
+# * optimum 1.25 requires transformers < 5;
+# * torch >= 2.10 removed the legacy TorchScript ONNX exporter —
+#   torch.onnx.export always routes through the dynamo-exporter compat
+#   layer (torch.onnx._internal.exporter), which imports onnxscript at
+#   call time (broke CI: ModuleNotFoundError after optimum 1.25 already
+#   imported fine). 0.7.2 is the locally validated version (.venv313).
+# torch itself is listed unpinned so pip sees the already-installed CPU
+# wheel as satisfied instead of pulling the CUDA build from PyPI.
 huggingface_hub
 torch
-transformers >= 4, < 5
-optimum >= 1.25, < 2
-onnx
+transformers == 4.51.3
+optimum == 1.25.0
+onnx == 1.23.2
+onnxscript == 0.7.2

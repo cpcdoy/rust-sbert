@@ -20,6 +20,27 @@ fn rand_string(r: &mut impl Rng) -> String {
         .collect()
 }
 
+/// Resolve distiluse's transformer module directory from `modules.json`
+/// (mirrors the library), so the benchmark works whether the checkpoint uses
+/// the modern root layout or the legacy `0_DistilBERT/` subdirectory.
+fn distiluse_transformer_dir() -> PathBuf {
+    let mut root: PathBuf = env::current_dir().unwrap();
+    root.push("models");
+    root.push("distiluse-base-multilingual-cased");
+
+    let entries = sbert::manifest::parse(&root).expect("read modules.json");
+    let entry = entries
+        .iter()
+        .find(|e| {
+            matches!(
+                e.short_type().as_str(),
+                "transformer" | "bert" | "distilbert"
+            )
+        })
+        .expect("modules.json declares a Transformer module");
+    sbert::manifest::resolve_module_dir(&root, entry)
+}
+
 fn bench_sbert_rust_tokenizers(c: &mut Criterion) {
     let mut home: PathBuf = env::current_dir().unwrap();
     home.push("models");
@@ -100,13 +121,7 @@ pub fn get_bert(path: &str) -> tokenizer::Tokenizer {
 }
 
 fn bench_tokenizers(c: &mut Criterion) {
-    let mut root: PathBuf = env::current_dir().unwrap();
-    root.push("models");
-    root.push("distiluse-base-multilingual-cased");
-
-    let model_dir = root.join("0_DistilBERT");
-
-    let vocab_file = model_dir.join("vocab.txt");
+    let vocab_file = distiluse_transformer_dir().join("vocab.txt");
 
     let texts = vec!["TTThis player needs tp be reported lolz."; 1000];
 

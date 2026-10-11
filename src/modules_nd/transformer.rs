@@ -46,7 +46,7 @@ impl OnnxBackend {
     /// sanity check) and, unless `onnx_file` is given, `model.onnx`.
     ///
     /// `device` selects the execution provider: `Cuda(i)` → CUDA EP
-    /// (requires rust-bert's `cuda` feature downstream) then CPU fallback;
+    /// (requires rust-bert's `onnx-cuda` feature downstream) then CPU fallback;
     /// `Cpu` → CPU EP only.
     pub fn new(
         module_dir: &Path,

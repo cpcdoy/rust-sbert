@@ -13,9 +13,10 @@ include = ["src/", "Cargo.toml", "README.md"]
 [features]
 default = ["torch"]
 # libtorch backend (rust-bert TorchScript transformer + tch modules).
-# rust-bert's tch dependency carries `download-libtorch`, so torch-sys can
-# fetch libtorch itself when no LIBTORCH* env vars are set.
-torch = ["dep:tch", "dep:torch-sys", "dep:rust-bert", "rust-bert/libtorch"]
+# `libtorch-download` (opt-in in the fork since the 0.25 feature refactor;
+# the tch dep no longer forces it) lets torch-sys fetch libtorch itself when
+# no LIBTORCH* env vars are set.
+torch = ["dep:tch", "dep:torch-sys", "dep:rust-bert", "rust-bert/libtorch", "rust-bert/libtorch-download"]
 # ONNX Runtime backend (rust-bert's ndarray ONNXEncoder + pure-ndarray
 # modules). No libtorch anywhere in the graph; onnxruntime is located at
 # RUNTIME via ORT_DYLIB_PATH (manual setup — see README).
@@ -31,8 +32,12 @@ ndarray = { version = "0.17", optional = true }
 rayon = "1.5"
 # Luxbit fork of rust-bert: tch is optional there, which is what lets the
 # `onnx` feature below stay libtorch-free. `libtorch` re-adds tch 0.17
-# (unified with our direct dep).
-rust-bert = { git = "https://github.com/Luxbit/rust-bert", branch = "main", optional = true, default-features = false }
+# (unified with our direct dep); no backend is default there, we opt into
+# the ones we need explicitly above. Pinned by full-sha rev on purpose: cargo
+# keys git sources by URL+query, so a floating `branch` here would duplicate
+# rust-bert next to any rev-pinned downstream (linkmesh doc_processor pins
+# the byte-identical string). Bump deliberately, in lockstep downstream.
+rust-bert = { git = "https://github.com/Luxbit/rust-bert", rev = "8b47c75025a4ab373e8ab9b4dd32a6cddf42a682", optional = true, default-features = false }
 rust_tokenizers = "7.0"
 serde = "1.0"
 serde_json = "1.0"

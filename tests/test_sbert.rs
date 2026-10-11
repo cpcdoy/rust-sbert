@@ -24,18 +24,36 @@ mod tests {
             .collect()
     }
 
+    /// Resolve distiluse's transformer module directory the same way the
+    /// library does, from `modules.json`. `utils/prepare_models.py` lays the
+    /// transformer files out at the model root (`"path": ""`), while legacy
+    /// checkpoints keep them under `0_DistilBERT/` — hard-coding either path
+    /// makes these tokenizer tests read a different file than the encoder.
+    fn distiluse_transformer_dir() -> PathBuf {
+        let mut root: PathBuf = env::current_dir().unwrap();
+        root.push("models");
+        root.push("distiluse-base-multilingual-cased");
+
+        let entries = sbert::manifest::parse(&root).expect("read modules.json");
+        let entry = entries
+            .iter()
+            .find(|e| {
+                matches!(
+                    e.short_type().as_str(),
+                    "transformer" | "bert" | "distilbert"
+                )
+            })
+            .expect("modules.json declares a Transformer module");
+        sbert::manifest::resolve_module_dir(&root, entry)
+    }
+
     #[test]
     fn test_hf_pre_tokenizer() {
         unsafe {
             dummy_cuda_dependency();
         } // Windows Hack
 
-        let mut home: PathBuf = env::current_dir().unwrap();
-        home.push("models");
-        home.push("distiluse-base-multilingual-cased");
-        home.push("0_DistilBERT");
-
-        let vocab_file = home.join("vocab.txt");
+        let vocab_file = distiluse_transformer_dir().join("vocab.txt");
         let tok = HFTokenizer::new(&vocab_file, false, 128).unwrap();
 
         let texts = vec![String::from("TTThis player needs tp be reported lolz.")];
@@ -174,7 +192,8 @@ mod tests {
     }
 
     /// Regression test for `forward_with_attention`. Requires distiluse's
-    /// `0_DistilBERT/config.json` to have `"output_attentions": true` set;
+    /// transformer `config.json` (resolved via `modules.json`; the model root
+    /// for the modern export) to have `"output_attentions": true` set;
     /// without it, rust-bert returns `all_attentions: None` and the test
     /// errors out with `Encoding("No attention")`.
     ///
@@ -391,13 +410,7 @@ mod tests {
 
     #[test]
     fn test_tok() {
-        let mut root: PathBuf = env::current_dir().unwrap();
-        root.push("models");
-        root.push("distiluse-base-multilingual-cased");
-
-        let model_dir = root.join("0_DistilBERT");
-
-        let vocab_file = model_dir.join("vocab.txt");
+        let vocab_file = distiluse_transformer_dir().join("vocab.txt");
 
         // Set-up DistilBert model and tokenizer
         let tokenizer =

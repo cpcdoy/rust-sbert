@@ -8,38 +8,40 @@
 [ci]: https://github.com/Luxbit/rust-sbert/actions/workflows/ci.yml
 
 Rust port of [sentence-transformers][] with two interchangeable inference
-backends selected at compile time via cargo features — **libtorch**
+backends selected at compile time via cargo features: **libtorch**
 ([tch-rs][], the default) or **ONNX Runtime** (libtorch-free, via the
 [Luxbit fork][luxbit-rust-bert] of [rust-bert][] where `tch` is optional and
 the ONNX stack is ndarray-based). The features are mutually exclusive by
-design — one tensor library per build:
+design, one tensor library per build:
 
-| You want... | Cargo | Weights | Runtime needs |
+|  | Cargo | Weights | Runtime needs |
 |---|---|---|---|
 | libtorch (default) | `sbert = "0.8"` (feature `torch`) | `model.ot` VarStore archives | libtorch (torch-sys can download it; MPS/Vulkan supported) |
 | ONNX Runtime, no libtorch | `sbert = { version = "0.8", default-features = false, features = ["onnx"] }` | `model.onnx` + `2_Dense/weights.safetensors` | onnxruntime via `ORT_DYLIB_PATH` |
-| Both at once | — | `compile_error!` (mutually exclusive) | — |
+
 
 The model pipeline is driven by a checkpoint's `modules.json` manifest: the
 library reads it, runs the transformer stage through the selected backend,
 and composes the post-transformer modules (`Pooling`, optional `Dense`,
-optional `Normalize`) in declared order — tch tensors under `torch`, pure
+optional `Normalize`) in declared order: tch tensors under `torch`, pure
 `ndarray` under `onnx`.
 
 Supports both [rust-tokenizers][] and Hugging Face's [tokenizers][].
 
 ## Requirements
 
-- `torch` (default): a libtorch at build/run time. With no `LIBTORCH*` env
-  vars set, torch-sys downloads PyTorch itself (the rust-bert fork's tch
-  dependency enables `download-libtorch`). Or point `LIBTORCH` at a local
-  extraction, as usual for tch crates.
-- `onnx`: an **onnxruntime** shared library (>= 1.17) at runtime, located
-  via `ORT_DYLIB_PATH` — the manual setup documented by the rust-bert fork:
+- `torch` (default): point `LIBTORCH` at a local
+  extraction, as usual for tch crates. With no `LIBTORCH*` env
+  vars set, torch-sys downloads PyTorch itself (the `torch`
+  feature enables the [rust-bert fork](https://github.com/Luxbit/rust-bert)'s
+  `libtorch-download` flag).
+- `onnx`: an **onnxruntime** shared library (>= 1.23) at runtime, located
+  via `ORT_DYLIB_PATH`, the manual setup documented by the
+  [rust-bert fork](https://github.com/Luxbit/rust-bert).
 
   1. Download a release for your platform from the
      [onnxruntime releases](https://github.com/microsoft/onnxruntime/releases)
-     (e.g. `onnxruntime-osx-arm64-1.20.1.tgz`).
+     (e.g. `onnxruntime-osx-arm64-1.23.2.tgz`).
   2. Extract it and point `ORT_DYLIB_PATH` at the library:
 
      ```bash
@@ -88,18 +90,12 @@ let output = sbert_model.forward(&texts, 64).unwrap(); // batch size, or None
 ```
 
 `SBert<T>` is a backward-compat alias for the underlying
-`SentenceTransformer<T>` struct — both names refer to the same type.
+`SentenceTransformer<T>` struct; both names refer to the same type.
 
-The `device` argument (`None` = `Device::cuda_if_available()`) is the
-re-exported `rust_bert::Device`: under `torch` it maps to `tch::Device`
-(`Cuda(i)` / `Cpu`; MPS and Vulkan map to CPU — request them via tch at the
-call site if needed), under `onnx` it selects the execution provider
-(`Cuda(i)` → CUDA EP, which additionally requires rust-bert's `cuda`
-feature downstream; `Cpu` → CPU EP; there is no Metal provider).
+The `device` argument is the re-exported `rust_bert::Device`; `None` defaults
+to `Device::cuda_if_available()`.
 
-`examples/encode_torch.rs` and `examples/encode_onnx.rs` are twin minimal
-programs — run both on the same checkpoint to see the backends agree to
-float rounding (~1e-7 max abs diff on distiluse).
+Also look at the minimal examples `examples/encode_torch.rs` and `examples/encode_onnx.rs`.
 
 ## Preparing a checkpoint
 
@@ -115,7 +111,7 @@ python utils/prepare_models.py sentence-transformers/distiluse-base-multilingual
 python utils/prepare_models.py sentence-transformers/distiluse-base-multilingual-cased \
     models/distiluse-base-multilingual-cased --backend onnx
 
-# a bare RoBERTa-family classifier (no modules.json — torch only):
+# a bare RoBERTa-family classifier (no modules.json; torch only):
 python utils/prepare_models.py cross-encoder/stsb-roberta-base \
     models/distilroberta_toxicity --backend torch
 ```
@@ -133,54 +129,64 @@ ORT_DYLIB_PATH=.../libonnxruntime.dylib \
   cargo test --test test_onnx --no-default-features --features onnx -- --nocapture
 ```
 
-(Integration tests skip themselves when `models/` fixtures are absent;
-`cargo test --lib` is hermetic under both features.)
+(Integration tests skip themselves when `models/` fixtures are absent)
 
 ## Pipeline architecture
 
 `SentenceTransformer<T>` (torch: `src/models/sbert_torch.rs`, onnx:
 `src/models/sbert_onnx.rs`) holds:
 
-- the transformer backend — under `torch`, rust-bert `BertModel` /
-  `DistilBertModel` with `.ot` weights, dispatched on `config.json`'s
-  `model_type` (`src/modules/transformer.rs`); under `onnx`, an
-  `OnnxBackend` wrapping rust-bert's ndarray `ONNXEncoder` over the
-  checkpoint's bare-backbone `model.onnx`
-  (`src/modules_nd/transformer.rs`).
-- `post: Vec<Box<dyn Module>>` — built from `modules.json` in declared
-  order; the forward pass threads a `Features` enum
-  (`Token { .. }` → `Sentence { .. }`) through each module; `Pooling` does
-  the token→sentence reduction. The tch implementations live in
-  `src/modules/`, their ndarray mirrors in `src/modules_nd/` (including a
-  dependency-free safetensors reader for Dense weights); the manifest
-  parser and tokenizer-settings resolution are shared and cfg-free.
+- **the transformer backend**: the one stage with a different I/O shape, so
+  it is held separately rather than in the module list. Both backends expose
+  the same `forward(input_ids, attention_mask)` contract to the driver:
+  - `torch`: a `Box<dyn TransformerBackend>` over rust-bert's `BertModel` /
+    `DistilBertModel`, weights loaded from the `model.ot` VarStore archive.
+    The `load` factory in `src/modules/transformer.rs` dispatches on
+    `config.json`'s `model_type`.
+  - `onnx`: an `OnnxBackend` wrapping rust-bert's ndarray `ONNXEncoder` over
+    the checkpoint's bare-backbone `model.onnx` (`src/modules_nd/transformer.rs`).
+    The graph *is* the model, so there is no per-architecture Rust code;
+    `OnnxBackend::new` only validates `model_type` as a sanity check.
+- **`post: Vec<Box<dyn Module>>`**: the post-transformer stages, built from
+  `modules.json` in declared order:
+  - the forward pass threads a `Features` enum (`Token { .. }` →
+    `Sentence { .. }`) through each module; `Pooling` does the token→sentence
+    reduction.
+  - the tch implementations live in `src/modules/`, their ndarray mirrors in
+    `src/modules_nd/` (including a dependency-free safetensors reader for
+    `Dense` weights).
+  - the manifest parser (`src/modules/manifest.rs`) and tokenizer-settings
+    resolution (`src/models/settings.rs`) are shared and cfg-free.
 
-To extend:
+### To extend
 
-- **New backbone**: under `torch`, add a backend struct + impl
-  `TransformerBackend` + a match arm in `modules::transformer::load`; under
-  `onnx`, backbones are graphs — accept the new `model_type` in
-  `OnnxBackend::new`. Either way a tokenizer compatible with the vocab is
-  needed (tokenization assumes `vocab.txt` + WordPiece except for the
-  SentencePiece impl).
-- **New post-transformer module** (e.g. `WeightedLayerPooling`): add a
-  module struct + impl `Module` + a match arm on `short_type` in both
-  drivers' manifest walks.
+- **New backbone** (e.g. RoBERTa):
+  - `torch`: add a backend struct + `impl TransformerBackend` in
+    `src/modules/transformer.rs`, plus a match arm in the `load` factory.
+    `utils/prepare_models.py` must also know the backbone's rust-bert varstore
+    prefix (`distilbert.`, `roberta.`, ...) so `model.safetensors` converts to
+    `model.ot`.
+  - `onnx`: no Rust backend struct is needed: backbones are graphs. Just
+    accept the new `model_type` in `OnnxBackend::new` (currently an explicit
+    `bert` / `distilbert` allow-list) and export the graph with
+    `utils/prepare_onnx.py` (optimum handles the architecture).
+  - **both**: the drivers hard-code the tokenizer file to
+    `transformer_dir.join("vocab.txt")`, and the built-in tokenizers construct
+    WordPiece from it. A backbone with a different tokenizer (e.g. RoBERTa's
+    BPE / SentencePiece) therefore needs a `tokenizers::Tokenizer`
+    implementation *and* matching tokenizer-file resolution. The existing
+    `RustTokenizersSentencePiece` reads `vocab.json` + `merges.txt`, not
+    `vocab.txt`, so the driver's path plumbing has to select it.
+- **New post-transformer module** (e.g. `WeightedLayerPooling`):
+  - add a struct + `impl Module` under `src/modules/` (tch) and its ndarray
+    mirror under `src/modules_nd/`, respecting the `Features` transition
+    (`Token` → `Sentence` at `Pooling`).
+  - add a match arm on `entry.short_type()` in **both** drivers' manifest walks
+    (`sbert_torch.rs` and `sbert_onnx.rs`). Extend the shared
+    `transformer`/`bert`/`distilbert` arm too if the checkpoint uses a legacy
+    per-architecture transformer class name.
 
-## Migration from 0.7
-
-- The hybrid `new_onnx*` / `new_with_source` constructors are gone — the
-  fork's `ONNXEncoder` is ndarray-typed, so "ORT transformer + tch pooling"
-  no longer exists. The ONNX pipeline is now the `onnx` feature's own
-  full ndarray implementation; `SBertRT::new_onnx(path, device)` becomes
-  `--features onnx` + `SBertRT::new(path, device)`.
-- `Option<tch::Device>` → `Option<sbert::Device>` (`Device::Cpu` /
-  `Device::Cuda(i)`; `Some(tch_dev.into())` at call sites that still have
-  tch in their own graph).
-- onnx checkpoints need `model.onnx` + `2_Dense/weights.safetensors`
-  instead of `.ot` — `utils/prepare_models.py --backend onnx` produces
-  them.
-- tch is now 0.17 (libtorch 2.4) — was 0.15 / libtorch 2.2.
+See `src/modules/` and `src/modules_nd/` for the building blocks.
 
 [sentence-transformers]: https://github.com/UKPLab/sentence-transformers
 [luxbit-rust-bert]: https://github.com/Luxbit/rust-bert

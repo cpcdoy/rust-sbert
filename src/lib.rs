@@ -40,9 +40,10 @@ use rust_tokenizers::error::TokenizerError;
 use thiserror::Error;
 
 /// Inference device. Re-exported from rust-bert so both backends share one
-/// definition: under `torch` it converts to `tch::Device` (Cuda(i) / Cpu;
-/// Mps and Vulkan map to Cpu — see the fork's conversion), under `onnx` it
-/// selects the ONNX Runtime execution provider.
+/// definition: under `torch` it converts to `tch::Device` (Cuda(i) / Cpu /
+/// Mps / Vulkan — all lossless, MPS drives the libtorch backend on Apple
+/// Silicon), under `onnx` it selects the ONNX Runtime execution provider
+/// (where Mps/Vulkan have no EP and resolve to CPU).
 pub use rust_bert::Device;
 
 #[cfg(feature = "torch")]
