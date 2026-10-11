@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use tch::Tensor;
 use tokenizers::models::wordpiece::WordPiece;
 use tokenizers::normalizers::bert::BertNormalizer;
 use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
@@ -95,7 +94,7 @@ impl Tokenizer for HFTokenizer {
             .collect()
     }
 
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Vec<i64>>, Vec<Vec<i64>>) {
         let input = input.iter().map(|v| v.as_ref()).collect::<Vec<_>>();
         let encode_input = input
             .into_iter()
@@ -106,29 +105,25 @@ impl Tokenizer for HFTokenizer {
         let attention_mask = encoding
             .iter()
             .map(|input| {
-                Tensor::from_slice(
-                    &input
-                        .get_ids()
-                        .iter()
-                        .map(|e| match *e {
-                            0 => 0 as i64,
-                            _ => 1 as i64,
-                        })
-                        .collect::<Vec<_>>(),
-                )
+                input
+                    .get_ids()
+                    .iter()
+                    .map(|e| match *e {
+                        0 => 0_i64,
+                        _ => 1_i64,
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
         let tokenized_input = encoding
             .into_iter()
             .map(|input| {
-                Tensor::from_slice(
-                    &input
-                        .get_ids()
-                        .iter()
-                        .map(|e| *e as i64)
-                        .collect::<Vec<_>>(),
-                )
+                input
+                    .get_ids()
+                    .iter()
+                    .map(|e| *e as i64)
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 

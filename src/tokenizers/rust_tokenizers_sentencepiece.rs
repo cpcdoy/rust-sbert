@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use rust_tokenizers::tokenizer::RobertaTokenizer;
 use rust_tokenizers::tokenizer::Tokenizer as Tok;
 use rust_tokenizers::tokenizer::TruncationStrategy;
-use tch::Tensor;
 
 use crate::tokenizers::Tokenizer;
 use crate::Error;
@@ -52,7 +51,7 @@ impl Tokenizer for RustTokenizersSentencePiece {
             .collect::<Vec<_>>()
     }
 
-    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Tensor>, Vec<Tensor>) {
+    fn tokenize<S: AsRef<str>>(&self, input: &[S]) -> (Vec<Vec<i64>>, Vec<Vec<i64>>) {
         use rust_tokenizers::tokenizer::Tokenizer;
 
         let tokenized_input = self.tokenizer.encode_list(
@@ -66,7 +65,7 @@ impl Tokenizer for RustTokenizersSentencePiece {
             .iter()
             .map(|input| input.token_ids.len())
             .max()
-            .unwrap_or_else(|| 0);
+            .unwrap_or(0);
 
         let tokenized_input = tokenized_input
             .into_iter()
@@ -80,25 +79,19 @@ impl Tokenizer for RustTokenizersSentencePiece {
         let attention_mask = tokenized_input
             .iter()
             .map(|input| {
-                Tensor::from_slice(
-                    &input
-                        .iter()
-                        .map(|e| {
-                            if *e == self.pad_token_id {
-                                0 as i64
-                            } else {
-                                1 as i64
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                )
+                input
+                    .iter()
+                    .map(|e| {
+                        if *e == self.pad_token_id {
+                            0_i64
+                        } else {
+                            1_i64
+                        }
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
-        let tokenized_input = tokenized_input
-            .into_iter()
-            .map(|input| Tensor::from_slice(&(input)))
-            .collect::<Vec<_>>();
         (tokenized_input, attention_mask)
     }
 }

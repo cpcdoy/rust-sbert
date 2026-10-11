@@ -1,39 +1,63 @@
 [package]
 name = "sbert"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Chady Dimachkie <cpcdoy@gmail.com>"]
 edition = "2018"
-description = "Rust implementation of Sentence Bert (SBert)"
+description = "Rust implementation of Sentence Bert (SBert) — libtorch or ONNX Runtime backend"
 repository = "https://github.com/cpcdoy/rust-sbert"
 keywords = ["nlp", "embedding", "bert", "sbert", "transformers"]
 license = "Apache-2.0"
 readme = "README.md"
-include = ["src/", "Cargo.toml", "build.rs"]
+include = ["src/", "Cargo.toml", "README.md"]
+
+[features]
+default = ["torch"]
+# libtorch backend (rust-bert TorchScript transformer + tch modules).
+# `libtorch-download` (opt-in in the fork since the 0.25 feature refactor;
+# the tch dep no longer forces it) lets torch-sys fetch libtorch itself when
+# no LIBTORCH* env vars are set.
+torch = ["dep:tch", "dep:torch-sys", "dep:rust-bert", "rust-bert/libtorch", "rust-bert/libtorch-download"]
+# ONNX Runtime backend (rust-bert's ndarray ONNXEncoder + pure-ndarray
+# modules). No libtorch anywhere in the graph; onnxruntime is located at
+# RUNTIME via ORT_DYLIB_PATH (manual setup — see README).
+onnx = ["dep:rust-bert", "rust-bert/onnx", "dep:ort", "dep:ndarray"]
+# docs.rs: skip libtorch linking when building documentation.
+doc-only = ["torch", "tch/doc-only"]
 
 [dependencies]
-lazy_static = "1.4"
 log = "0.4"
-num_cpus = "1.13"
-prost = "0.9"
+# Under `onnx` this must match rust-bert's ndarray (the ONNXEncoder API is
+# ndarray-typed).
+ndarray = { version = "0.17", optional = true }
 rayon = "1.5"
-rust-bert = { git = "https://github.com/guillaume-be/rust-bert", rev = "29f9a7a", default-features = false }
+# Luxbit fork of rust-bert: tch is optional there, which is what lets the
+# `onnx` feature below stay libtorch-free. `libtorch` re-adds tch 0.17
+# (unified with our direct dep); no backend is default there, we opt into
+# the ones we need explicitly above. Pinned by full-sha rev on purpose: cargo
+# keys git sources by URL+query, so a floating `branch` here would duplicate
+# rust-bert next to any rev-pinned downstream (linkmesh doc_processor pins
+# the byte-identical string). Bump deliberately, in lockstep downstream.
+rust-bert = { git = "https://github.com/Luxbit/rust-bert", rev = "8b47c75025a4ab373e8ab9b4dd32a6cddf42a682", optional = true, default-features = false }
 rust_tokenizers = "7.0"
 serde = "1.0"
 serde_json = "1.0"
 strum = "0.23"
 strum_macros = "0.23"
-tch = "0.15.0"
 thiserror = "1.0"
 tokenizers = "0.15"
-torch-sys = "0.15.0"
+tch = { version = "0.17", optional = true }
+# Only for the `dummy_cuda_dependency` Windows linking hack in torch tests.
+torch-sys = { version = "0.17", optional = true }
+# "Manual setup" per the rust-bert fork README (onnx feature): an explicit
+# `ort` dependency with `load-dynamic`, version-matched to rust-bert's, so
+# the onnxruntime C++ library is located at RUNTIME via ORT_DYLIB_PATH
+# instead of being linked or downloaded at build time. The version must
+# exactly match rust-bert's pin ("=2.0.0-rc.13").
+ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["load-dynamic"] }
 
 [dev-dependencies]
 criterion = "0.3"
 rand = "0.8"
-
-[features]
-doc-only = ["tch/doc-only"]
-all-tests = []
 
 [package.metadata.docs.rs]
 features = ["doc-only"]
@@ -46,26 +70,57 @@ crate-type = ["lib"]
 [[bin]]
 name = "convert-tensor"
 path = "src/bin/convert-tensor.rs"
+required-features = ["torch"]
 doc = false
 
 [[test]]
 name = "sbert_test"
 path = "tests/test_sbert.rs"
+required-features = ["torch"]
 doc = false
 
 [[test]]
 name = "distilroberta_test"
 path = "tests/test_distilroberta.rs"
+required-features = ["torch"]
 doc = false
 
 [[bench]]
 name = "sbert_bench"
 path = "benches/bench_sbert.rs"
 harness = false
+required-features = ["torch"]
 doc = false
 
 [[bench]]
 name = "distilroberta_bench"
 path = "benches/bench_distilroberta.rs"
 harness = false
+required-features = ["torch"]
 doc = false
+
+[[test]]
+name = "test_onnx"
+path = "tests/test_onnx.rs"
+required-features = ["onnx"]
+doc = false
+
+[[example]]
+name = "encode_torch"
+path = "examples/encode_torch.rs"
+required-features = ["torch"]
+
+[[example]]
+name = "encode_onnx"
+path = "examples/encode_onnx.rs"
+required-features = ["onnx"]
+
+[[example]]
+name = "dump_torch"
+path = "examples/dump_torch.rs"
+required-features = ["torch"]
+
+[[example]]
+name = "dump_onnx"
+path = "examples/dump_onnx.rs"
+required-features = ["onnx"]

@@ -1,26 +1,239 @@
+# CI for the Luxbit fork of rust-sbert — dual backend (torch | onnx).
+#
+# Design notes:
+#
+# * Backends are mutually exclusive cargo features (compile_error! guards in
+#   src/lib.rs): `torch` (default) and `onnx`. Every onnx-leg command must
+#   therefore pass `--no-default-features --features onnx`; every torch-leg
+#   command uses the default feature set.
+#
+# * torch leg: the `torch` feature enables rust-bert's `libtorch` plus its
+#   `libtorch-download` opt-in — torch-sys fetches PyTorch 2.4
+#   itself (CPU build on Linux, matching wheel on Apple Silicon runners)
+#   when no LIBTORCH* env vars are set. check/doc/unit jobs are otherwise
+#   hermetic.
+#
+# * onnx leg: libtorch-free (rust-bert from the Luxbit fork with
+#   `features = ["onnx"]`, tch optional there). ort uses the "manual setup"
+#   from the fork README: explicit `ort = "=2.0.0-rc.13"` with
+#   `load-dynamic`, so onnxruntime is located at RUNTIME via ORT_DYLIB_PATH
+#   and never linked/downloaded during builds — check/unit jobs need
+#   nothing at all; the integration job downloads an onnxruntime release.
+#
+# * Integration jobs prepare the distiluse checkpoint per backend via
+#   utils/prepare_models.py (`--backend torch`: safetensors -> .ot through
+#   the convert-tensor bin; `--backend onnx`: optimum bare-backbone export —
+#   the pip torch wheel is Python-only, the Rust build stays libtorch-free).
+#   integration-torch additionally prepares a RoBERTa classifier checkpoint
+#   (cross-encoder/stsb-roberta-base) for distilroberta_test.
+#
+# * parity runs the twin dump examples (features are mutually exclusive, so
+#   two cargo invocations) and gates on utils/compare_backends.py: cross-
+#   backend max-abs 1e-4 / cosine 1-1e-6, batch-vs-solo invariance 1e-5.
+#
+# * clippy mirrors the check matrix with -D warnings (both feature sets).
+#
+# * macOS leg pinned to macos-15 (Xcode 16): Xcode 26's libc++ forbids
+#   specializing std type traits (_LIBCPP_NO_SPECIALIZATIONS), which hard-
+#   errors in libtorch 2.4's c10/util/strong_type.h under torch-sys 0.17.
+#   Revisit when tch/the rust-bert fork move past libtorch 2.4.
+
 name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, "feat/**", "spike/**"]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  fmt:
     runs-on: ubuntu-latest
-    env:
-      LIBTORCH: ${{ github.workspace }}/libtorch
-      LD_LIBRARY_PATH: ${{ github.workspace }}/libtorch/lib
     steps:
       - uses: actions/checkout@v4
-      - name: Download libtorch 2.2.0 (CPU), the version tch 0.15 expects
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: clippy (${{ matrix.backend }})
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, onnx]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets ${{ matrix.backend == 'onnx' && '--no-default-features --features onnx' || '' }} -- -D warnings
+
+  check:
+    name: check (${{ matrix.os }}, ${{ matrix.backend }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-15, not macos-latest: see the Xcode 26 note in the header.
+        os: [ubuntu-latest, macos-15]
+        backend: [torch, onnx]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check
+        run: cargo check --all-targets ${{ matrix.backend == 'onnx' && '--no-default-features --features onnx' || '' }}
+      - name: cargo doc (warnings are errors)
+        if: matrix.os == 'ubuntu-latest' && matrix.backend == 'torch'
+        run: cargo doc --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+  unit-tests:
+    name: unit-tests (${{ matrix.backend }})
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, onnx]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib ${{ matrix.backend == 'onnx' && '--no-default-features --features onnx' || '' }}
+
+  integration-torch:
+    # Model-backed sbert_test target against the real distiluse checkpoint
+    # (VarStore .ot weights), default (torch) features, plus distilroberta_
+    # test against a freshly prepared RoBERTa classifier checkpoint (the
+    # models/distilroberta_toxicity fixture — regenerable via prepare_models
+    # .py since the classifier-layout fix).
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install python deps
+        run: python -m pip install -r utils/requirements-torch.txt
+      - name: Cache checkpoints
+        uses: actions/cache@v4
+        with:
+          path: models/
+          key: models-torch-${{ hashFiles('utils/prepare_models.py', 'utils/requirements-torch.txt') }}
+      - name: Prepare distiluse checkpoint
+        if: ${{ !hashFiles('models/distiluse-base-multilingual-cased/model.ot') }}
+        run: python3 utils/prepare_models.py sentence-transformers/distiluse-base-multilingual-cased models/distiluse-base-multilingual-cased --backend torch
+      - name: Prepare distilroberta classifier checkpoint
+        if: ${{ !hashFiles('models/distilroberta_toxicity/model.ot') }}
+        run: python3 utils/prepare_models.py cross-encoder/stsb-roberta-base models/distilroberta_toxicity --backend torch
+      - name: cargo test
         run: |
-          curl -sSL -o libtorch.zip "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.2.0%2Bcpu.zip"
-          unzip -q libtorch.zip
-          rm libtorch.zip
-      - name: Format check
-        run: cargo fmt -- --check
-      - name: Build
-        run: cargo build --all-targets
-      - name: Unit tests (no model files needed)
-        run: cargo test --lib
+          cargo test --test sbert_test
+          cargo test --test distilroberta_test
+
+  integration-onnx:
+    # Model-backed test_onnx target against the real distiluse checkpoint
+    # (bare-backbone model.onnx + Dense safetensors), onnx features only —
+    # no libtorch anywhere in this job's Rust build.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ORT_DYLIB_PATH: /opt/onnxruntime/lib/libonnxruntime.so
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # >= 1.23, not 1.20-1.22: ort 2.0.0-rc.13 releases the ORT environment
+      # from a .fini_array handler at process exit, and onnxruntime 1.20-1.22
+      # segfaults inside its own teardown at that point (fixed in 1.23) —
+      # every onnx-leg binary would exit 139 after succeeding.
+      - name: Manual onnxruntime setup
+        run: |
+          curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz \
+            | tar -xz -C /opt
+          mv /opt/onnxruntime-linux-x64-1.23.2 /opt/onnxruntime
+          ls -la /opt/onnxruntime/lib
+      - name: Install python deps
+        run: |
+          python -m pip install --upgrade pip
+          # Pinned: optimum 1.25 (see utils/requirements-onnx.txt) is only
+          # compatible up to this torch — newer ones removed torch.onnx
+          # internals optimum >= 1.26 imports. The pin must live here, not
+          # in the requirements file, or pip would reinstall CUDA wheels
+          # from PyPI over this CPU build.
+          python -m pip install "torch == 2.14.1" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r utils/requirements-onnx.txt
+      - name: Cache distiluse checkpoint
+        uses: actions/cache@v4
+        with:
+          path: models/
+          key: distiluse-onnx-${{ hashFiles('utils/prepare_models.py', 'utils/prepare_onnx.py', 'utils/requirements-onnx.txt') }}
+      - name: Prepare checkpoint
+        if: ${{ !hashFiles('models/distiluse-base-multilingual-cased/model.onnx') }}
+        run: python3 utils/prepare_models.py sentence-transformers/distiluse-base-multilingual-cased models/distiluse-base-multilingual-cased --backend onnx
+      - name: cargo test
+        run: cargo test --test test_onnx --no-default-features --features onnx
+
+  parity:
+    # Cross-backend parity on the shared fixed corpus: encode with the twin
+    # dump examples (torch features, then onnx features — mutually exclusive,
+    # so two cargo invocations) and gate on utils/compare_backends.py's
+    # thresholds (cross-backend max abs 1e-4 / cosine 1-1e-6; batch-vs-solo
+    # invariance 1e-5, which catches padding leaking across batch rows or a
+    # broken order restore).
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ORT_DYLIB_PATH: /opt/onnxruntime/lib/libonnxruntime.so
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Same >= 1.23 pin as integration-onnx (1.20-1.22 segfault at exit).
+      - name: Manual onnxruntime setup
+        run: |
+          curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz \
+            | tar -xz -C /opt
+          mv /opt/onnxruntime-linux-x64-1.23.2 /opt/onnxruntime
+          ls -la /opt/onnxruntime/lib
+      - name: Install python deps
+        run: |
+          python -m pip install --upgrade pip
+          # Pinned to the optimum-1.25-compatible torch — see the matching
+          # comment in the integration-onnx job.
+          python -m pip install "torch == 2.14.1" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r utils/requirements-torch.txt -r utils/requirements-onnx.txt
+      - name: Cache distiluse checkpoint (both backends)
+        uses: actions/cache@v4
+        with:
+          path: models/
+          key: models-parity-${{ hashFiles('utils/prepare_models.py', 'utils/prepare_onnx.py', 'utils/requirements-torch.txt', 'utils/requirements-onnx.txt') }}
+      - name: Prepare checkpoint (both backends)
+        if: ${{ !hashFiles('models/distiluse-base-multilingual-cased/model.onnx') }}
+        run: python3 utils/prepare_models.py sentence-transformers/distiluse-base-multilingual-cased models/distiluse-base-multilingual-cased --backend both
+      - name: Dump torch embeddings
+        run: cargo run --example dump_torch -- models/distiluse-base-multilingual-cased /tmp/distiluse.torch.json
+      - name: Dump onnx embeddings
+        run: cargo run --no-default-features --features onnx --example dump_onnx -- models/distiluse-base-multilingual-cased /tmp/distiluse.onnx.json
+      - name: Compare backends
+        run: python3 utils/compare_backends.py /tmp/distiluse.torch.json /tmp/distiluse.onnx.json

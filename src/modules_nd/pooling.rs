@@ -14,10 +14,10 @@
 
 use std::path::Path;
 
+use ndarray::{Array2, Axis};
 use serde::Deserialize;
-use tch::{Kind, Tensor};
 
-use crate::modules::{Features, Module};
+use crate::modules_nd::{Features, Module};
 use crate::Error;
 
 #[derive(Debug, Deserialize)]
@@ -93,8 +93,6 @@ impl Pooling {
 
 impl Module for Pooling {
     fn forward(&self, features: &mut Features) -> Result<(), Error> {
-        // Reborrow the &mut Tensor fields as &Tensor for the arithmetic.
-        // (tch's Mul/Div impls are on `&Tensor`, not `&mut Tensor`.)
         let (token_embeddings, attention_mask) = match features {
             Features::Token {
                 token_embeddings,
@@ -105,42 +103,74 @@ impl Module for Pooling {
             }
         };
 
+        let (batch, seq, hidden) = (
+            token_embeddings.shape()[0],
+            token_embeddings.shape()[1],
+            token_embeddings.shape()[2],
+        );
+
+        // f32 mask expanded to [batch, seq, hidden] — the same layout the
+        // tch implementation used (mask.unsqueeze(-1).expand_as).
+        let mask3 = attention_mask
+            .mapv(|m| m as f32)
+            .insert_axis(Axis(2))
+            .broadcast((batch, seq, hidden))
+            .expect("mask broadcast")
+            .to_owned();
+
         // Mirrors sentence_transformers.models.Pooling.forward: each active
         // mode appends one [batch, hidden] vector, concatenated below in the
         // Python implementation's fixed order.
-        let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(token_embeddings);
-        let mut vectors: Vec<Tensor> = Vec::new();
+        let mut vectors: Vec<Array2<f32>> = Vec::new();
 
         if self.cls {
             // Take first token by default.
-            vectors.push(token_embeddings.select(1, 0));
+            vectors.push(token_embeddings.index_axis(Axis(1), 0).into_owned());
         }
 
         if self.max {
             // Set padding tokens to a large negative value so they never win
-            // the max.
-            let padded = token_embeddings.masked_fill(&input_mask_expanded.eq(0), -1e9);
-            vectors.push(padded.max_dim(1, false).0);
+            // the max: emb*mask + (1-mask)*(-1e9).
+            let neg_fill = mask3.mapv(|m| (1.0 - m) * -1e9);
+            let padded = token_embeddings * &mask3 + &neg_fill;
+            // Max over the sequence axis (ndarray 0.17 keeps min/max in
+            // ndarray-stats; fold_axis is equivalent for f32).
+            vectors.push(padded.fold_axis(
+                Axis(1),
+                f32::NEG_INFINITY,
+                |&a, &b| {
+                    if a > b {
+                        a
+                    } else {
+                        b
+                    }
+                },
+            ));
         }
 
         if self.mean || self.mean_sqrt_len {
-            let sum_embeddings =
-                (token_embeddings * &input_mask_expanded).sum_dim_intlist(1, false, Kind::Float);
-            let sum_mask = input_mask_expanded.sum_dim_intlist(1, false, Kind::Float);
+            let sum_embeddings = (token_embeddings * &mask3).sum_axis(Axis(1));
+            // Expanded-mask sum over the sequence axis: [batch, hidden],
+            // every entry the real-token count (tch's sum_mask).
+            let sum_mask = mask3.sum_axis(Axis(1));
 
             if self.mean {
-                // Clamp sum_mask to avoid div-by-zero on all-pad batches.
-                vectors.push(&sum_embeddings / &sum_mask.clamp_min(1e-9));
+                // Clamp to avoid div-by-zero on all-pad batches.
+                vectors.push(&sum_embeddings / &sum_mask.mapv(|c| c.max(1e-9)));
             }
             if self.mean_sqrt_len {
-                vectors.push(sum_embeddings / sum_mask.sqrt().clamp_min(1e-9));
+                vectors.push(&sum_embeddings / &sum_mask.mapv(|c| c.sqrt().max(1e-9)));
             }
         }
 
         let sentence = match vectors.len() {
             0 => return Err(Error::Encoding("no pooling mode produced output")),
             1 => vectors.remove(0),
-            _ => Tensor::cat(&vectors, 1),
+            _ => ndarray::concatenate(
+                Axis(1),
+                &vectors.iter().map(|v| v.view()).collect::<Vec<_>>(),
+            )
+            .map_err(|_| Error::Encoding("pooling mode concatenation failed"))?,
         };
 
         *features = Features::Sentence {
@@ -153,19 +183,16 @@ impl Module for Pooling {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
-    use tch::Device;
-
-    const B: i64 = 2;
-    const S: i64 = 3;
-    const H: i64 = 4;
+    use ndarray::Array3;
 
     /// Synthetic token embeddings `[2, 3, 4]` filled with 0..24 and a mask
     /// of `[[1, 1, 0], [1, 0, 0]]` — 2 real tokens in row 0, 1 in row 1.
     fn sample_features() -> Features {
         Features::Token {
-            token_embeddings: Tensor::arange(B * S * H, (Kind::Float, Device::Cpu)).view([B, S, H]),
-            attention_mask: Tensor::from_slice(&[1i64, 1, 0, 1, 0, 0]).view([B, S]),
+            token_embeddings: Array3::from_shape_fn((2, 3, 4), |(i, j, k)| {
+                ((i * 3 + j) * 4 + k) as f32
+            }),
+            attention_mask: Array2::from_shape_vec((2, 3), vec![1i64, 1, 0, 1, 0, 0]).unwrap(),
         }
     }
 
@@ -182,7 +209,9 @@ mod tests {
         let mut features = sample_features();
         pooling.forward(&mut features).unwrap();
         match features {
-            Features::Sentence { embedding } => Vec::<Vec<f32>>::try_from(embedding).unwrap(),
+            Features::Sentence { embedding } => {
+                embedding.outer_iter().map(|r| r.to_vec()).collect()
+            }
             _ => panic!("expected sentence features"),
         }
     }
@@ -238,9 +267,9 @@ mod tests {
     fn multiple_modes_concatenate_in_python_order() {
         // cls first, then mean — same order as sentence-transformers.
         let rows = embed(&pooling(true, false, true, false));
-        assert_eq!(rows[0].len(), 2 * H as usize, "outputs are concatenated");
-        assert_close(&[rows[0][..H as usize].to_vec()], &[&[0.0, 1.0, 2.0, 3.0]]);
-        assert_close(&[rows[0][H as usize..].to_vec()], &[&[2.0, 3.0, 4.0, 5.0]]);
+        assert_eq!(rows[0].len(), 2 * 4, "outputs are concatenated");
+        assert_close(&[rows[0][..4].to_vec()], &[&[0.0, 1.0, 2.0, 3.0]]);
+        assert_close(&[rows[0][4..].to_vec()], &[&[2.0, 3.0, 4.0, 5.0]]);
     }
 
     #[test]

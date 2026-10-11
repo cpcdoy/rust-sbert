@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -7,7 +6,9 @@ use rayon::prelude::*;
 use rust_bert::bert::BertConfig;
 use rust_bert::roberta::RobertaForSequenceClassification;
 use rust_bert::Config;
-use tch::{nn, Device, Tensor};
+use tch::{nn, Tensor};
+
+use crate::Device;
 
 use crate::models::pad_sort;
 use crate::tokenizers::Tokenizer;
@@ -16,7 +17,7 @@ use crate::{Embeddings, Error};
 pub struct DistilRobertaForSequenceClassification<T> {
     lm_model: RobertaForSequenceClassification,
     tokenizer: Arc<T>,
-    device: Device,
+    device: tch::Device,
 }
 
 impl<T> DistilRobertaForSequenceClassification<T>
@@ -36,7 +37,7 @@ where
 
         let config = BertConfig::from_file(&config_file);
 
-        let device = device.unwrap_or(Device::cuda_if_available());
+        let device: tch::Device = device.unwrap_or_else(Device::cuda_if_available).into();
         log::info!("Using device {:?}", device);
 
         let mut vs = nn::VarStore::new(device);
@@ -44,7 +45,7 @@ where
         // No sentence_bert_config.json for this checkpoint layout — keep the
         // historical default truncation length.
         let tokenizer = Arc::new(T::new(&root, false, 128)?);
-        let lm_model = RobertaForSequenceClassification::new(&vs.root(), &config).unwrap();
+        let lm_model = RobertaForSequenceClassification::new(vs.root(), &config).unwrap();
 
         vs.load(weights_file)?;
 
@@ -61,7 +62,7 @@ where
         B: Into<Option<usize>>,
     {
         let input = input.iter().map(AsRef::as_ref).collect::<Vec<&str>>();
-        let batch_size = batch_size.into().unwrap_or_else(|| 64);
+        let batch_size = batch_size.into().unwrap_or(64);
 
         let _guard = tch::no_grad_guard();
 
@@ -93,8 +94,18 @@ where
 
                 let (tokenized_input, attention) = tokenizer.tokenize(&sorted_pad_input[range]);
 
-                let batch_tensor = Tensor::stack(&tokenized_input, 0).to(device);
-                let batch_attention = Tensor::stack(&attention, 0).to(device);
+                let stack = |rows: &[Vec<i64>]| {
+                    Tensor::stack(
+                        &rows
+                            .iter()
+                            .map(|r| Tensor::from_slice(r))
+                            .collect::<Vec<_>>(),
+                        0,
+                    )
+                    .to(device)
+                };
+                let batch_tensor = stack(&tokenized_input);
+                let batch_attention = stack(&attention);
 
                 (batch_tensor, batch_attention)
             })
@@ -131,7 +142,7 @@ where
 
         let batch_tensors = sorted_pad_input_idx
             .into_iter()
-            .map(|i| mem::replace(&mut batch_tensors[i], vec![]))
+            .map(|i| std::mem::take(&mut batch_tensors[i]))
             .collect::<Vec<_>>();
 
         Ok(batch_tensors)
